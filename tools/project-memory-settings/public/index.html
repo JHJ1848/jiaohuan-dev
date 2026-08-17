@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>项目记忆(Project Memory)设置</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <main class="page-shell">
+      <header class="page-header">
+        <p class="eyebrow">本地项目工具</p>
+        <h1>项目记忆(Project Memory)</h1>
+        <p class="subtitle">设置读取策略，并手动轮转或清理临时材料。</p>
+      </header>
+
+      <section class="settings-section" aria-labelledby="location-heading">
+        <h2 id="location-heading">运行位置</h2>
+        <dl class="path-list">
+          <div>
+            <dt>项目根目录</dt>
+            <dd id="project-root">读取中</dd>
+          </div>
+          <div>
+            <dt>运行目录</dt>
+            <dd id="runtime-path">读取中</dd>
+          </div>
+        </dl>
+        <p id="inspection-summary" class="hint"></p>
+      </section>
+
+      <section class="settings-section" aria-labelledby="policy-heading">
+        <h2 id="policy-heading">读取策略</h2>
+        <form id="policy-form" class="control-row">
+          <label for="memory-get-mode">memory_get_mode</label>
+          <select id="memory-get-mode" name="memory_get_mode" disabled>
+            <option value="only_once">only_once</option>
+            <option value="auto">auto</option>
+            <option value="manually">manually</option>
+            <option value="do_not_get">do_not_get</option>
+          </select>
+          <button id="save-policy" type="submit" disabled>保存</button>
+        </form>
+        <p class="hint">only_once：当前任务或子会话的一次性读取提示；auto：默认按索引判断；manually：仅手动读取；do_not_get：不读取。</p>
+      </section>
+
+      <section class="settings-section" aria-labelledby="archive-heading">
+        <h2 id="archive-heading">临时材料轮转</h2>
+        <div class="action-row">
+          <button id="rotate" type="button">手动轮转</button>
+          <button id="cleanup" type="button" class="danger">清理过期归档</button>
+        </div>
+        <p class="hint">仅手动执行：轮转打包静置超过七天的材料；清理只处理工具生成且超过保留期的归档。本页不启动定时任务，也不写入正式记忆文档。</p>
+      </section>
+
+      <output id="notice" class="notice" aria-live="polite"></output>
+      <pre id="result" class="result" hidden></pre>
+    </main>
+    <script src="/app.js"></script>
+  </body>
+</html>

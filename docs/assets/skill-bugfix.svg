@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">缺陷修复 bugfix 概念图</title>
+  <desc id="desc">Bugfix 兼容路由把诊断与修复拆成可确认的路径。</desc>
+  <defs>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto"><path d="M0,0 L12,6 L0,12 Z" fill="#8b8b8b"/></marker>
+    <style>
+      .bg{fill:#0b0b0b}.title{fill:#fff;font:700 42px "Segoe UI","Microsoft YaHei",sans-serif}.subtitle{fill:#9e9e9e;font:400 20px "Segoe UI","Microsoft YaHei",sans-serif}.node{fill:#161616;stroke:#707070;stroke-width:2}.node-strong{fill:#202020;stroke:#fff;stroke-width:2}.node-title{fill:#fff;font:700 25px "Segoe UI","Microsoft YaHei",sans-serif}.node-body{fill:#c8c8c8;font:400 20px "Segoe UI","Microsoft YaHei",sans-serif}.line{fill:none;stroke:#888;stroke-width:3;marker-end:url(#arrow)}.label{fill:#a9a9a9;font:600 18px "Segoe UI","Microsoft YaHei",sans-serif}.note{fill:#777;font:400 18px "Segoe UI","Microsoft YaHei",sans-serif}
+    </style>
+  </defs>
+  <rect class="bg" width="1600" height="900"/>
+  <text class="title" x="100" y="88">缺陷修复 · bugfix</text>
+  <text class="subtitle" x="100" y="124">兼容旧名称的路由：取证与修复各自守住边界</text>
+  <rect class="node-strong" x="610" y="165" width="380" height="100" rx="10"/>
+  <text class="node-title" x="800" y="207" text-anchor="middle">缺陷入口</text>
+  <text class="node-body" x="800" y="241" text-anchor="middle">编译失败 · 数据异常 · 接口偏差</text>
+  <path class="line" d="M800 265 V325"/>
+  <rect class="node" x="610" y="325" width="380" height="100" rx="10"/>
+  <text class="node-title" x="800" y="367" text-anchor="middle">memory-get</text>
+  <text class="node-body" x="800" y="401" text-anchor="middle">先读规则、记忆与历史约束</text>
+  <path class="line" d="M800 425 V485"/>
+  <rect class="node" x="610" y="485" width="380" height="100" rx="10"/>
+  <text class="node-title" x="800" y="527" text-anchor="middle">debug</text>
+  <text class="node-body" x="800" y="561" text-anchor="middle">只取证，输出确认修复计划</text>
+  <path class="line" d="M800 585 V645"/>
+  <rect class="node-strong" x="610" y="645" width="380" height="100" rx="10"/>
+  <text class="node-title" x="800" y="687" text-anchor="middle">用户确认计划</text>
+  <text class="node-body" x="800" y="721" text-anchor="middle">确认后才进入 dev</text>
+  <path class="line" d="M610 695 H390 V535 H610"/>
+  <text class="label" x="195" y="525">仅诊断</text>
+  <text class="label" x="300" y="558">直接交 memory-put</text>
+  <path class="line" d="M990 695 H1210"/>
+  <rect class="node" x="1210" y="645" width="280" height="100" rx="10"/>
+  <text class="node-title" x="1350" y="687" text-anchor="middle">dev → memory-put</text>
+  <text class="node-body" x="1350" y="721" text-anchor="middle">最小修复与交接</text>
+  <text class="note" x="100" y="830">边界：不复制 workflow，不维护状态机，不越过用户确认。</text>
+</svg>

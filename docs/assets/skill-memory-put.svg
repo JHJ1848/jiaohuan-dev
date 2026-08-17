@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">记忆归档 memory-put 概念图</title>
+  <desc id="desc">记忆归档技能从临时证据到用户确认、正式文档和交付引用。</desc>
+  <defs>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto"><path d="M0,0 L12,6 L0,12 Z" fill="#8b8b8b"/></marker>
+    <style>
+      .bg{fill:#0b0b0b}.title{fill:#fff;font:700 42px "Segoe UI","Microsoft YaHei",sans-serif}.subtitle{fill:#9e9e9e;font:400 20px "Segoe UI","Microsoft YaHei",sans-serif}.node{fill:#161616;stroke:#707070;stroke-width:2}.node-strong{fill:#202020;stroke:#fff;stroke-width:2}.node-title{fill:#fff;font:700 25px "Segoe UI","Microsoft YaHei",sans-serif}.node-body{fill:#c8c8c8;font:400 20px "Segoe UI","Microsoft YaHei",sans-serif}.line{fill:none;stroke:#888;stroke-width:3;marker-end:url(#arrow)}.label{fill:#a9a9a9;font:600 18px "Segoe UI","Microsoft YaHei",sans-serif}.note{fill:#777;font:400 18px "Segoe UI","Microsoft YaHei",sans-serif}
+    </style>
+  </defs>
+  <rect class="bg" width="1600" height="900"/>
+  <text class="title" x="100" y="88">记忆归档 · memory-put</text>
+  <text class="subtitle" x="100" y="124">先保存受管证据，再由用户决定是否进入正式记忆</text>
+  <rect class="node-strong" x="100" y="365" width="260" height="145" rx="10"/>
+  <text class="node-title" x="230" y="414" text-anchor="middle">任务完成</text>
+  <text class="node-body" x="230" y="454" text-anchor="middle">开发 / 诊断交接</text>
+  <path class="line" d="M360 437 H480"/>
+  <rect class="node" x="480" y="365" width="260" height="145" rx="10"/>
+  <text class="node-title" x="610" y="414" text-anchor="middle">临时证据</text>
+  <text class="node-body" x="610" y="454" text-anchor="middle">事实 · 决策 · 未知项</text>
+  <path class="line" d="M740 437 H860"/>
+  <rect class="node" x="860" y="365" width="260" height="145" rx="10"/>
+  <text class="node-title" x="990" y="414" text-anchor="middle">价值评估</text>
+  <text class="node-body" x="990" y="454" text-anchor="middle">high / medium / low</text>
+  <path class="line" d="M1120 437 H1240"/>
+  <rect class="node-strong" x="1240" y="365" width="260" height="145" rx="10"/>
+  <text class="node-title" x="1370" y="414" text-anchor="middle">用户确认</text>
+  <text class="node-body" x="1370" y="454" text-anchor="middle">确认后才正式归档</text>
+  <path class="line" d="M1370 510 V630 H1080"/>
+  <rect class="node" x="800" y="630" width="280" height="110" rx="10"/>
+  <text class="node-title" x="940" y="675" text-anchor="middle">写入 docs/</text>
+  <text class="node-body" x="940" y="711" text-anchor="middle">场景六段合同</text>
+  <path class="line" d="M800 685 H650"/>
+  <rect class="node" x="350" y="630" width="300" height="110" rx="10"/>
+  <text class="node-title" x="500" y="675" text-anchor="middle">交付引用</text>
+  <text class="node-body" x="500" y="711" text-anchor="middle">目标 · 状态 · 边界</text>
+  <text class="note" x="100" y="820">未获确认：保留临时材料，但不得声称已归档。</text>
+</svg>
