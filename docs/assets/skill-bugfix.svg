@@ -30,7 +30,7 @@
   <text class="label" x="300" y="558">直接交 memory-put</text>
   <path class="line" d="M990 695 H1210"/>
   <rect class="node" x="1210" y="645" width="280" height="100" rx="10"/>
-  <text class="node-title" x="1350" y="687" text-anchor="middle">dev → memory-put</text>
-  <text class="node-body" x="1350" y="721" text-anchor="middle">最小修复与交接</text>
+  <text class="node-title" x="1350" y="687" text-anchor="middle">dev → code-review</text>
+  <text class="node-body" x="1350" y="721" text-anchor="middle">通过后再交 memory-put</text>
   <text class="note" x="100" y="830">边界：不复制 workflow，不维护状态机，不越过用户确认。</text>
 </svg>

@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
   <title id="title">项目记忆 project-memory 概念图</title>
-  <desc id="desc">项目记忆技能负责记忆读取、任务路由和确认后的归档。</desc>
+  <desc id="desc">项目记忆技能负责记忆读取、收尾审查的历史证据和确认后的归档。</desc>
   <defs>
     <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto"><path d="M0,0 L12,6 L0,12 Z" fill="#8b8b8b"/></marker>
     <style>
@@ -25,7 +25,7 @@
   <text class="node-body" x="320" y="515" text-anchor="middle">输出最小上下文</text>
   <rect class="node" x="620" y="395" width="360" height="170" rx="10"/>
   <text class="node-title" x="800" y="440" text-anchor="middle">memory-get → dev/debug</text>
-  <text class="node-body" x="800" y="480" text-anchor="middle">任务完成后交 memory-put</text>
+  <text class="node-body" x="800" y="480" text-anchor="middle">实施变更先交 code-review</text>
   <text class="node-body" x="800" y="515" text-anchor="middle">主任务独占正式归档</text>
   <rect class="node" x="1100" y="395" width="360" height="170" rx="10"/>
   <text class="node-title" x="1280" y="440" text-anchor="middle">memory-put</text>

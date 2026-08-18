@@ -23,12 +23,12 @@
   <text class="node-body" x="980" y="445" text-anchor="middle">时序 · 数据 · 影响面</text>
   <path class="line" d="M1110 425 H1230"/>
   <rect class="node" x="1230" y="350" width="260" height="150" rx="10"/>
-  <text class="node-title" x="1360" y="405" text-anchor="middle">风险复核</text>
-  <text class="node-body" x="1360" y="445" text-anchor="middle">交接 memory-put</text>
+  <text class="node-title" x="1360" y="405" text-anchor="middle">code-review</text>
+  <text class="node-body" x="1360" y="445" text-anchor="middle">规格 · 规范 · 历史坑点</text>
   <path class="line" d="M980 500 V650 H760"/>
   <rect class="node" x="500" y="650" width="260" height="110" rx="10"/>
   <text class="node-title" x="630" y="695" text-anchor="middle">出现疑点</text>
   <text class="node-body" x="630" y="730" text-anchor="middle">回交 debug 取证</text>
   <text class="label" x="1010" y="600">疑点 / 计划外差异</text>
-  <text class="note" x="100" y="830">真实请求验收：只执行已确认的最小请求对，失败即停止继续修改。</text>
+  <text class="note" x="100" y="830">审查通过后再交 memory-put；疑点回交 debug。</text>
 </svg>

@@ -48,3 +48,34 @@
 - **复审修正**：标题树只接受符合闭合规则的同字符围栏；HTTP 工具拒绝在普通 `--header` 中传递常见凭据头，避免调用方把令牌直接写入脚本参数。
 - **工作流**：新增只读 `explore`，统一链路增加探索；`workflow` 每次交付路由、依据、边界和下一关。`bugfix` 保留兼容入口，移除重复 Gotcha 导出脚本和派生索引；`project-memory` 保留唯一迁移工具。
 - **发布边界**：已建立 Git 基线并推送 `origin/main`；未同步至 `~/.agents/skills`、未改写 `plugin.json` 的发布动作仍需单独确认。
+
+### 2026-08-17（Codex 插件命名空间）
+- **合集发布**：新增 `.codex-plugin/plugin.json`，Codex 插件入口使用 `jiaohuan-develop-workflow:<skill>`；`.agents/skills` 保留同源裸名称副本供其他 Agent 使用。插件副本携带 `skills/`、`rules/` 和 `tools/`，避免发布时丢失依赖。
+
+### 2026-08-17（完整工作流规则回填）
+- **短入口、完整合同**：原版 `bugfix` 和 `project-memory` 的细节不再堆入入口文件；`rules/engineering-principles.md` 成为宏观工程原则唯一权威，`debug`、`dev`、`memory-get`、`memory-put` 的 `references/` 承担按需执行合同。各 Skill 到规则的相对路径统一为 `../../rules/engineering-principles.md`，兼容仓库、`.agents` 与 Codex 插件三种布局。
+- **诊断与开发**：补回场景-目标卡、L1-L4 影响分流、事件止损、单假设证据循环、三次独立排除后的停手求助、Git/change 历史取证、最小可逆修改、日志、最小 HTTP 请求对和按影响面复核；不恢复持久状态机、未经证实的兜底或平行 Gotcha 索引。
+- **记忆与协作**：明确多任务先由用户选择串行、异步取证或独立子会话；完整 `get -> 工作流 -> put` 仅属于独立任务。补全初始化选择、双向索引、四种读取策略、用户可见标题树、价值评估四项标准、六段场景合同、输出记忆引用和七日/七周保留规则。
+- **过期记录**：同标题但摘要变化的归档默认拒绝覆盖，返回替代确认；只有先建立 `docs/change/` 记录并提供 `put --replace --change-record <记录>` 后才替换场景正文。物理删除仍需用户单独确认和备份。
+- **验证边界**：上述规则回填和替代流程已通过 Node 语法、相对引用、插件清单和多端点哈希核对；`--replace --change-record` 尚待用户授权的隔离样例人工验收，未执行真实项目或 HTTP 请求。
+- **自动化边界**：HTTP 循环复用最小 Bash 请求；令牌默认走环境变量。仅在用户授权时以任务级临时命令完成登录换令牌，不沉淀凭据，也不扩展为通用登录平台；重要变更记录可按需保存少量脱敏源码快照或精确路径。
+
+### 2026-08-17（需求收敛与发布去重）
+- **任务边界**：明确主智能体(Agent)串行的每个独立任务也必须执行完整 `memory-get -> 工作流 -> memory-put`；`path.json` 是可落盘的任务级临时跨智能体(Agent)子上下文，不是流程状态机(State Machine)。
+- **约束优先级**：`AGENTS.md` 约束与 `MEMORY.md` 事实、目标或范围冲突时一律停止并请求用户裁决，不允许记忆覆盖项目约束。
+- **Codex 去重**：为保留插件命名空间，已将九个同名裸 Skill 从 `~/.codex/skills/` 备份并移入 `skills-disabled/`；Codex 仅由插件提供本合集，跨 Agent 共享继续以 `~/.agents/skills/` 为唯一源。
+- **文档术语**：主分支 Skill 与参考文档固定使用简洁中文，通用术语首次写作“中文(English)”，英文版本留给独立分支；新增名词不得制造无边界的同义词。
+- **发布版本**：规则、Skill、插件源与各共享端点经备份式同步；Codex 插件以 `0.2.1+codex.20260817110159` 安装，插件缓存携带 `skills/`、`rules/` 与 `tools/`。
+
+### 2026-08-18（Skill 专题图核对）
+- **资产清单**：核对 `docs/assets/` 中 8 张 Skill SVG 均存在且无缺失或多余文件；浏览器静态渲染未发现文字裁切或节点重叠。
+- **文档入口**：README 新增 8 张图的文件链接、对应 Skill 和职责说明；图示仅作导航，执行规则仍以各 `SKILL.md` 与 `rules/engineering-principles.md` 为准。
+
+### 2026-08-18（新会话 Skill 合集必读规则注入）
+- **跨平台规则同步**：在 AGY (`GEMINI.md`)、Codex (`AGENTS.md`)、Claude (`AGENTS.md`) 以及全局中央配置 (`~\.agents\AGENTS.md`) 中明确追加“jiaohuan-develop 合集感知”硬性规则。
+- **规则要求**：开启新会话或接收任务时，必须主动阅读一次当前项目（叫唤-开发-工作流 / jiaohuan-develop）的所有 Skill 集合（即 `./skills/` 目录下的所有 `SKILL.md`），明确技能清单与协作网络，禁止跳过已有工作流进行盲目推测。
+
+### 2026-08-18（归档前代码审查节点）
+- **工作流收尾**：有可审查实施变更的开发与缺陷修复链路在 `dev` 后、`memory-put` 前新增 `code-review`；仅文档整理、仅诊断和探索保持原链路。实施变更未完成独立审查时不得静默归档。
+- **审查适配**：已提交且基点明确的变更可复用全局 `code-review` 的规格(Spec)/规范(Standards)双轴；未提交变更按 `requesting-code-review` 传递 `git diff HEAD`（含 staged/unstaged）、`git status --short`、未跟踪文件内容、需求/计划和工作区状态请求独立审查。无统一 issue tracker 时以用户确认需求和实施计划作为 Spec；审查按 `memory-get` 策略复用历史场景(Scene)、陷阱(Gotcha)、`docs/change/` 与 Git 约束，并把报告写入临时证据和 `path.json`。
+- **风险回流**：阻断、重要或未证实发现分别回到 `dev` 或 `debug`，修复后重新审查；`project-memory` 仅提供记忆检索与归档契约，不维护审查状态。
