@@ -9,17 +9,21 @@
 | 图示文件 | 对应 Skill | 作用说明 |
 | --- | --- | --- |
 | [`skill-workflow.svg`](docs/assets/skill-workflow.svg) | `workflow` | 按任务语义选择最小闭环；有实施变更时在归档前增加 `code-review` 收尾节点，不维护持久状态机(State Machine)或调度器。 |
+| [`skill-explore.svg`](docs/assets/skill-explore.svg) | `explore` | 目标、范围或历史意图不清时只读梳理现状和未知项，决定转入 `debug`、`dev` 或停止。 |
 | [`skill-dev.svg`](docs/assets/skill-dev.svg) | `dev` | 计划确认后实施最小、可逆改动，保持时序、数据和影响面不变量；出现计划外疑点时回交 `debug`。 |
 | [`skill-debug.svg`](docs/assets/skill-debug.svg) | `debug` | 只读取证，按外部环境、真实数据、调用链与历史意图逐层验证单一假设，输出根因或未知项及修复计划。 |
 | [`skill-bugfix.svg`](docs/assets/skill-bugfix.svg) | `bugfix` | 兼容旧名称的缺陷入口，连接 `memory-get`、`debug`、用户确认、`dev`、`code-review` 和 `memory-put`；仅诊断时可直接交接归档。 |
 | [`skill-project-memory.svg`](docs/assets/skill-project-memory.svg) | `project-memory` | 约束项目记忆的读取、任务交接和确认后归档边界，不接管任务调度，也不建立平行索引。 |
 | [`skill-memory-get.svg`](docs/assets/skill-memory-get.svg) | `memory-get` | 开发或诊断前读取规则、主记忆和已登记匹配文档的最小相关上下文；用户明确请求时可查看记忆树。 |
 | [`skill-memory-put.svg`](docs/assets/skill-memory-put.svg) | `memory-put` | 汇总任务临时证据，经价值评估和用户确认后写入 `docs/` 正式记忆；未确认时只保留临时材料。 |
+| [`skill-session-reader.svg`](docs/assets/skill-session-reader.svg) | `session-reader` | 只读用户指定的会话或导出文件，输出带来源指纹、范围和省略边界的会话包，不复制原始会话。 |
 | [`skill-session-gotcha-extractor.svg`](docs/assets/skill-session-gotcha-extractor.svg) | `session-gotcha-extractor` | 从历史工程会话提炼场景(Scene)、误判、证据、边界和未知项，交给 `memory-put`，不直接修改正式记忆或创建平行陷阱(Gotcha)索引。 |
 
 以下概念图用黑底白字展示各专题的核心入口、流程和边界：
 
 ![workflow 专题图](docs/assets/skill-workflow.svg)
+
+![explore 专题图](docs/assets/skill-explore.svg)
 
 ![dev 专题图](docs/assets/skill-dev.svg)
 
@@ -33,6 +37,8 @@
 
 ![memory-put 专题图](docs/assets/skill-memory-put.svg)
 
+![session-reader 专题图](docs/assets/skill-session-reader.svg)
+
 ![session-gotcha-extractor 专题图](docs/assets/skill-session-gotcha-extractor.svg)
 
 ## 四层结构
@@ -40,9 +46,11 @@
 1. **共享工程原则**：证据优先、先理解后修改、历史意图追溯、最小且可逆的改动、控制变量、按影响面验证和风险复核。
 2. **工作流**：`workflow` 负责语义路由，`explore`、`debug`、`dev` 分别处理澄清、诊断和开发；`bugfix` 保留为兼容路由。
 3. **项目记忆与轻量存储**：`project-memory`、`memory-get`、`memory-put`，以及其单一 CLI、策略、索引、任务临时证据、路径摘要与归档实现。
-4. **证据提炼与外部引用扩展**：`session-gotcha-extractor` 提炼历史会话；`code-review` 与 `requesting-code-review` 提供独立收尾审查；全局方法型技能(Skill)仅按需引用，不属于本插件。
+4. **会话证据与外部引用扩展**：`session-reader` 只读指定会话并输出标准化会话包，`session-gotcha-extractor` 提炼场景(Scene)和陷阱(Gotcha)；`code-review` 与 `requesting-code-review` 提供独立收尾审查；全局方法型技能(Skill)仅按需引用，不属于本插件。
 
 `tools/project-memory-settings/`、`skills/project-memory/scripts/runtime/` 和 JSON 策略是第三层的实现，不是另一类技能(Skill)。入口 `SKILL.md` 只保留触发、边界和交接；不可省略的执行规则位于 `rules/engineering-principles.md` 及各 Skill 的 `references/`，随插件一起发布。
+
+`session-reader` 不复制厂商原始会话，也不把会话写入 `.agents/skills/`。它只读取用户明确指定的文件或会话 ID，输出带来源指纹、范围和省略边界的标准化会话包；提炼结果仍交给 `memory-put`，厂商格式变化只影响读取适配器。
 
 ## 插件命名空间
 

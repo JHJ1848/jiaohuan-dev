@@ -14,7 +14,7 @@ const { outline } = require('./markdown-outline');
 function parseArgs(argv) {
   const [command, ...remaining] = argv;
   if (!command) {
-    fail('用法：project-memory.js <inspect|init|policy|get|outline|temp|draft|path|put|rotate|cleanup> [选项]');
+    fail('用法：project-memory.js <inspect|init|policy|get|outline|temp|draft|path|put|rotate|cleanup> [选项]；同标题场景覆盖使用 put --replace --change-record docs/change/<记录>.md。');
   }
   const rest = [...remaining];
   let subcommand = null;

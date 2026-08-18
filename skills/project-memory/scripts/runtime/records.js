@@ -7,6 +7,7 @@ const { ensureFramework, frameworkIsWritable, ensureMainMemoryStructure, markerB
 const { parseIndexEntries } = require('./retrieval');
 const { safeTaskId, taskDirectory, taskPathForManagedFile, readTaskManifest, readTaskPath, refreshTaskManifest } = require('./tasks');
 const { assertNoSecrets } = require('./secret-inspection');
+const { parseHeadings } = require('./markdown-outline');
 
 function ensureTopicStructure(content, topicName) {
   const base = content.length > 0 ? content : `# ${topicName}\n`;
@@ -72,10 +73,6 @@ function updateIndexes(projectRoot, framework, target, classification, title, su
   return { main: toProjectPath(projectRoot, memoryPath), topic: toProjectPath(projectRoot, classification.topicPath) };
 }
 
-function escapeRegExp(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
 function sceneContainsSummary(scene, summary) {
   return scene.split(/\r?\n/).some((line) => {
     const match = line.match(/^- (?:摘要|Summary):\s*(.*)$/);
@@ -83,28 +80,49 @@ function sceneContainsSummary(scene, summary) {
   });
 }
 
-function appendSceneRecord(content, title, summary, record) {
-  const headingPattern = new RegExp(`^###\\s+${escapeRegExp(title)}\\s*$`, 'im');
-  const heading = headingPattern.exec(content);
-  if (!heading) {
+function lineStartOffset(content, lineNumber) {
+  let offset = 0;
+  for (let line = 1; line < lineNumber; line += 1) {
+    const next = content.indexOf('\n', offset);
+    if (next === -1) {
+      return content.length;
+    }
+    offset = next + 1;
+  }
+  return offset;
+}
+
+function sceneRange(content, title) {
+  const headings = parseHeadings(content);
+  const index = headings.findIndex((heading) => heading.level === 3 && heading.title === title);
+  if (index === -1) {
+    return null;
+  }
+  const current = headings[index];
+  const following = headings.slice(index + 1).find((heading) => heading.level <= 3);
+  return {
+    start: lineStartOffset(content, current.line),
+    end: following ? lineStartOffset(content, following.line) : content.length,
+  };
+}
+
+function appendSceneRecord(content, title, summary, record, replace) {
+  const range = sceneRange(content, title);
+  if (!range) {
     const prefix = content.length === 0 || content.endsWith('\n') ? content : `${content}\n`;
     return { content: `${prefix}${prefix.length > 0 ? '\n' : ''}${record}\n`, action: 'appended' };
   }
-  const lineEnd = content.indexOf('\n', heading.index);
-  const bodyStart = lineEnd === -1 ? content.length : lineEnd + 1;
-  const following = content.slice(bodyStart);
-  const nextHeadingOffset = following.search(/^(?:#{1,3})\s+/m);
-  const insertAt = nextHeadingOffset === -1 ? content.length : bodyStart + nextHeadingOffset;
-  const existingScene = content.slice(heading.index, insertAt);
+  const existingScene = content.slice(range.start, range.end);
   if (sceneContainsSummary(existingScene, summary)) {
     return { content, action: 'duplicate' };
   }
-  const update = record.split(/\r?\n/).slice(2).join('\n').trim();
-  const before = content.slice(0, insertAt);
-  const after = content.slice(insertAt);
-  const separatorBefore = before.endsWith('\n') ? '\n' : '\n\n';
+  if (!replace) {
+    return { content, action: 'requires_replace_confirmation' };
+  }
+  const before = content.slice(0, range.start);
+  const after = content.slice(range.end);
   const separatorAfter = after.length === 0 || after.startsWith('\n') ? '' : '\n';
-  return { content: `${before}${separatorBefore}#### 归档更新 ${new Date().toISOString().slice(0, 10)}\n\n${update}\n${separatorAfter}${after}`, action: 'merged' };
+  return { content: `${before}${record}\n${separatorAfter}${after}`, action: 'replaced' };
 }
 
 function sourceFilesForTask(projectRoot, taskId) {
@@ -132,9 +150,6 @@ function sourceFilesForTask(projectRoot, taskId) {
 }
 
 function valueAssessment(options) {
-  if (options.explicit) {
-    return { archive: true, value: options.value || 'explicit', reason: compactText(options.assessment || '调用方声明为显式归档请求。') };
-  }
   if (!options.value) {
     return { archive: false, status: 'requires_value_assessment' };
   }
@@ -176,6 +191,17 @@ function classifyFormalTarget(projectRoot, target) {
     return { kind: 'change' };
   }
   fail('正式归档目标只能是 docs/memory/<专题>.md、docs/memory/<专题>/<功能>.md 或 docs/change/<记录>.md。');
+}
+
+function replacementChangeRecord(projectRoot, options) {
+  if (!options['change-record']) {
+    fail('覆盖场景必须提供既有 docs/change/ 记录：--change-record docs/change/<记录>.md。');
+  }
+  const target = assertSafeDocsTarget(projectRoot, path.resolve(projectRoot, options['change-record']), true);
+  if (classifyFormalTarget(projectRoot, target).kind !== 'change') {
+    fail('--change-record 必须指向 docs/change/ 下的既有 Markdown 记录。');
+  }
+  return target;
 }
 
 function normalizeHeading(value, label) {
@@ -273,7 +299,7 @@ function formalTextFields(options) {
   ];
 }
 
-function sceneRecord(projectRoot, target, options, title, summary, assessment, sourceFiles, pathInfo) {
+function sceneRecord(projectRoot, target, options, title, summary, assessment, sourceFiles, pathInfo, changeRecord) {
   const validity = options.validity || 'active';
   if (!VALIDITY_VALUES.has(validity)) {
     fail('--validity 只能是 active、superseded、historical 或 needs-review。');
@@ -296,6 +322,7 @@ function sceneRecord(projectRoot, target, options, title, summary, assessment, s
     `- 复核日期: ${controlledDate(options['review-after'], '--review-after')}`,
     `- 替代关系: ${controlledReferences(projectRoot, target, options['superseded-by'], '--superseded-by', false)}`,
     `- 关联记录: ${controlledReferences(projectRoot, target, options.related, '--related', true)}`,
+    `- 替代变更: ${changeRecord ? `[${markdownLabel(path.basename(changeRecord, '.md'))}](${relativeFromFile(target, changeRecord)})` : '无'}`,
     `- 依赖记录: ${controlledReferences(projectRoot, target, options['depends-on'], '--depends-on', true)}`,
     `- 证据草稿: ${sourceFiles.length > 0 ? sourceFiles.join(', ') : '无'}`,
     `- 路径摘要: ${pathInfo.summary}`,
@@ -355,13 +382,21 @@ function appendFormalRecord(projectRoot, options) {
   const pathInfo = pathMemoryInfo(readTaskPath(projectRoot, taskId));
   const target = resolveFormalTarget(projectRoot, options);
   const classification = classifyFormalTarget(projectRoot, target);
-  const record = sceneRecord(projectRoot, target, options, title, summary, assessment, sourceFiles, pathInfo);
+  let record = sceneRecord(projectRoot, target, options, title, summary, assessment, sourceFiles, pathInfo, null);
   ensureSafeDirectory(projectRoot, path.dirname(target));
   const current = existingFile(target) ? readText(target) : `# ${path.basename(target, '.md')}\n`;
-  const next = appendSceneRecord(current, title, summary, record);
+  const next = appendSceneRecord(current, title, summary, record, options.replace === true);
   if (next.action === 'duplicate') {
     const indexes = updateIndexes(projectRoot, framework, target, classification, title, summary);
     return { status: 'duplicate', target: toProjectPath(projectRoot, target), task: taskId, assessment: { value: assessment.value, reason: assessment.reason }, path_summary: pathInfo.summary, indexes };
+  }
+  if (next.action === 'requires_replace_confirmation') {
+    return { status: 'requires_replace_confirmation', target: toProjectPath(projectRoot, target), task: taskId, assessment: { value: assessment.value, reason: assessment.reason }, hint: '同标题场景摘要已变化；核对历史变更后使用 --replace 覆盖，或改用新标题并关联替代记录。' };
+  }
+  if (next.action === 'replaced') {
+    const changeRecord = replacementChangeRecord(projectRoot, options);
+    record = sceneRecord(projectRoot, target, options, title, summary, assessment, sourceFiles, pathInfo, changeRecord);
+    next.content = appendSceneRecord(current, title, summary, record, true).content;
   }
   assertSafeDocsTarget(projectRoot, target, false);
   writeTextAtomic(target, next.content);

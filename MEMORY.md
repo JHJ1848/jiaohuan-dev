@@ -68,12 +68,19 @@
 - **发布版本**：规则、Skill、插件源与各共享端点经备份式同步；Codex 插件以 `0.2.1+codex.20260817110159` 安装，插件缓存携带 `skills/`、`rules/` 与 `tools/`。
 
 ### 2026-08-18（Skill 专题图核对）
-- **资产清单**：核对 `docs/assets/` 中 8 张 Skill SVG 均存在且无缺失或多余文件；浏览器静态渲染未发现文字裁切或节点重叠。
-- **文档入口**：README 新增 8 张图的文件链接、对应 Skill 和职责说明；图示仅作导航，执行规则仍以各 `SKILL.md` 与 `rules/engineering-principles.md` 为准。
+- **资产清单**：当前 `docs/assets/` 中 10 张 Skill SVG 与 10 个 Skill 一一对应；结构核对未发现缺失或多余文件。
+- **文档入口**：README 列出 10 张图的文件链接、对应 Skill 和职责说明；图示仅作导航，执行规则仍以各 `SKILL.md` 与 `rules/engineering-principles.md` 为准。
 
 ### 2026-08-18（新会话 Skill 合集必读规则注入）
 - **跨平台规则同步**：在 AGY (`GEMINI.md`)、Codex (`AGENTS.md`)、Claude (`AGENTS.md`) 以及全局中央配置 (`~\.agents\AGENTS.md`) 中明确追加“jiaohuan-develop 合集感知”硬性规则。
 - **规则要求**：开启新会话或接收任务时，必须主动阅读一次当前项目（叫唤-开发-工作流 / jiaohuan-develop）的所有 Skill 集合（即 `./skills/` 目录下的所有 `SKILL.md`），明确技能清单与协作网络，禁止跳过已有工作流进行盲目推测。
+
+### 2026-08-18（会话读取与提炼分层）
+- **新增 `session-reader`**：只读用户指定的 Codex、Claude、Gemini 或导出文件，输出带来源指纹、范围和省略边界的 `session-packet`；默认不复制厂商原始会话，不写 `.agents/skills/` 或正式 `docs/`。
+- **提炼交接**：`session-gotcha-extractor` 在提炼历史会话前先读取 `session-reader`，区分用户原文、AI 可见回复、工具证据、用户推测和未闭环问题，结果仍交由 `memory-put`。
+- **读取器边界修正**：`session-reader` 的 Markdown 适配器兼容 `用户(user)`、`助手(assistant)` 双语标题，并会显式丢弃系统(system)、开发者(developer)和工具(tool)段落，避免隐藏内容混入可见消息。
+- **专题图同步**：新增 `skill-explore.svg`、`skill-session-reader.svg`，并更新工作流(Workflow)、会话提炼与项目记忆(Project Memory)图，反映 Explore 路由、会话包交接和主任务唯一归档边界；10 个 Skill 均有导航图。
+- **发布边界**：当前实现包含通用 JSONL/Markdown 读取和 Codex/Claude 可见消息识别；Gemini 和真实宿主会话仍需用户授权的隔离样例人工验收。厂商路径变化只修改读取适配器，不重复保存原始记录。
 
 ### 2026-08-18（归档前代码审查节点）
 - **工作流收尾**：有可审查实施变更的开发与缺陷修复链路在 `dev` 后、`memory-put` 前新增 `code-review`；仅文档整理、仅诊断和探索保持原链路。实施变更未完成独立审查时不得静默归档。

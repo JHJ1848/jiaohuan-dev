@@ -24,9 +24,10 @@
   <text class="node-body" x="320" y="480" text-anchor="middle">规则 · 主记忆 · 相关文档</text>
   <text class="node-body" x="320" y="515" text-anchor="middle">输出最小上下文</text>
   <rect class="node" x="620" y="395" width="360" height="170" rx="10"/>
-  <text class="node-title" x="800" y="440" text-anchor="middle">memory-get → dev/debug</text>
-  <text class="node-body" x="800" y="480" text-anchor="middle">实施变更先交 code-review</text>
-  <text class="node-body" x="800" y="515" text-anchor="middle">主任务独占正式归档</text>
+  <text class="node-title" x="800" y="440" text-anchor="middle">memory-get → 工作流</text>
+  <text class="node-body" x="800" y="480" text-anchor="middle">explore · debug · dev</text>
+  <text class="node-body" x="800" y="510" text-anchor="middle">实施变更先交 code-review</text>
+  <text class="node-body" x="800" y="540" text-anchor="middle">主任务唯一正式归档</text>
   <rect class="node" x="1100" y="395" width="360" height="170" rx="10"/>
   <text class="node-title" x="1280" y="440" text-anchor="middle">memory-put</text>
   <text class="node-body" x="1280" y="480" text-anchor="middle">用户确认后写入 docs/</text>
