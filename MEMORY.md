@@ -86,3 +86,9 @@
 - **工作流收尾**：有可审查实施变更的开发与缺陷修复链路在 `dev` 后、`memory-put` 前新增 `code-review`；仅文档整理、仅诊断和探索保持原链路。实施变更未完成独立审查时不得静默归档。
 - **审查适配**：已提交且基点明确的变更可复用全局 `code-review` 的规格(Spec)/规范(Standards)双轴；未提交变更按 `requesting-code-review` 传递 `git diff HEAD`（含 staged/unstaged）、`git status --short`、未跟踪文件内容、需求/计划和工作区状态请求独立审查。无统一 issue tracker 时以用户确认需求和实施计划作为 Spec；审查按 `memory-get` 策略复用历史场景(Scene)、陷阱(Gotcha)、`docs/change/` 与 Git 约束，并把报告写入临时证据和 `path.json`。
 - **风险回流**：阻断、重要或未证实发现分别回到 `dev` 或 `debug`，修复后重新审查；`project-memory` 仅提供记忆检索与归档契约，不维护审查状态。
+
+### 2026-08-21（跨宿主插件与开发规范）
+- **插件化发布**：项目发布单位明确为跨宿主插件(Plugin)，内部保留独立可触发的 Skill；新增 `.claude-plugin/plugin.json`，与 `.codex-plugin/plugin.json` 共同声明宿主元数据。Claude 使用 `jiaohuanworkflow:<skill>`，Codex 保留 `jiaohuan-develop-workflow:<skill>` 兼容命名空间，`~/.agents/skills` 仍是共享 Skill 源。
+- **开发约束补全**：`dev` 及其实施参考补充新增功能审视卡、魔法值(Magic Value)治理、方法规模与最小封装边界、关键节点日志链，以及“基线复现 -> 单因修改 -> 精确验证 -> diff/日志核对”的修改-验证循环。未获用户授权不发送真实请求；秘密只经环境变量传递。
+- **视觉导航**：`README.md` 已登记 `workflow`、`explore`、`dev`、`debug`、`bugfix`、`project-memory`、`memory-get`、`memory-put`、`session-reader`、`session-gotcha-extractor` 共 10 张 SVG 专题图。图示只负责导航，规则以 `rules/engineering-principles.md` 和各 Skill 参考文档为准。
+- **交付材料**：已生成桌面技术博客 `jiaohuanworkflow-plugin-architecture.md`，用于说明 Plugin/Skill 分层、记忆闭环、并行边界、证据归档和跨宿主命名空间；博客链接至 `https://github.com/JHJ1848/jiaohuan-dev`，不包含本机绝对路径、凭据或业务私密信息。

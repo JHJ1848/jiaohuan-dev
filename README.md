@@ -1,10 +1,10 @@
 # 叫唤-开发-工作流
 
-这是一个版本化的本地技能(Skill)集合，用于沉淀“架构师 + 开发”的工程原则、开发/排障工作流和项目记忆约束。`~/.agents/skills` 是共享发布源；Git 仓库和 Codex 插件副本保持同源镜像，修改共享 Skill 时先更新中央源、再同步镜像和各 Agent 端点。
+这是一个跨宿主插件(Plugin)，内部包含多个可独立触发的技能(Skill)，用于沉淀“架构师 + 开发”的工程原则、开发/排障工作流和项目记忆约束。`~/.agents/skills` 是共享 Skill 源；`.codex-plugin/` 与 `.claude-plugin/` 是宿主插件清单，插件只负责合集身份、版本和自动发现，不把多个 Skill 合并成一个文件。
 
 ## Skill 专题图
 
-`docs/assets/` 当前包含以下 8 张 SVG。文件名与 Skill 名称一一对应，表中说明用于快速定位；具体执行规则以对应 `SKILL.md` 和工程原则为准。
+`docs/assets/` 当前包含以下 10 张 SVG。文件名与 Skill 名称一一对应，表中说明用于快速定位；具体执行规则以对应 `SKILL.md` 和工程原则为准。
 
 | 图示文件 | 对应 Skill | 作用说明 |
 | --- | --- | --- |
@@ -54,7 +54,13 @@
 
 ## 插件命名空间
 
-通过 Codex 插件安装时，本合集的 Skill 使用 `jiaohuan-develop-workflow:<skill>`，例如 `jiaohuan-develop-workflow:debug`。同步到 `~/.agents/skills` 的副本仅用于跨 Agent 共享，保持裸名称；两者由同一仓库发布，不可分别修改。Codex 不再保留同名裸 Skill，避免与插件双重注册；已移出的副本位于 `~/.codex/skills-disabled/`。
+本项目的发布单位是插件，Skill 仍按目录独立维护：
+
+- Claude Code：插件名为 `jiaohuanworkflow`，使用 `jiaohuanworkflow:<skill>`，例如 `jiaohuanworkflow:debug`。
+- Codex：保留已安装的 `jiaohuan-develop-workflow:<skill>` 兼容名称，例如 `jiaohuan-develop-workflow:debug`。
+- Gemini、Claude、Codex 的裸目录副本仅用于共享发布和兼容发现，唯一 Skill 源仍是 `~/.agents/skills`，不得在端点手工修改。
+
+Claude 插件根目录包含 `.claude-plugin/plugin.json` 和 `skills/`；Codex 插件根目录包含 `.codex-plugin/plugin.json` 和同一份 `skills/`。因此同一套能力可被不同宿主按各自命名空间发现。
 
 ## 主链路
 
@@ -121,4 +127,4 @@ bash skills/debug/scripts/http-check.sh \
 
 隔离样例已人工验收 CLI 初始化、双向索引、四种读取策略、标题树、主/子任务草稿、确认归档、GUI 回环接口、七日周归档、七周清理和 HTTP 脱敏请求检查。新增的 `--replace --change-record` 仅完成静态核查，待用户授权的隔离样例人工验收。以上均不是目标项目的真实业务验收。
 
-发布时按单向路径执行：`~/.agents/skills` 共享发布源 -> Git 仓库与 Codex 插件副本 -> Gemini、Claude 等 Agent 端点；覆盖前先备份，禁止两处手工漂移。同步逻辑不属于项目记忆运行时。Codex 插件清单已使用已核实字段；其他宿主的 `plugin.json` 不猜测版本或能力字段。首个 Git 基线已建立并推送，后续提交和推送仍需用户授权。
+发布时按单向路径执行：`~/.agents/skills` 共享发布源 -> Git 仓库及宿主插件副本 -> Gemini、Claude 等 Agent 端点；覆盖前先备份，禁止两处手工漂移。同步逻辑不属于项目记忆运行时。Codex 与 Claude 的 `plugin.json` 均只声明宿主认可的插件元数据，不把运行时规则重复写入清单。当前 Claude 本地插件已安装为 `jiaohuanworkflow@jiaohuanworkflow`；后续版本仍需从中央源重新同步并重新安装。
