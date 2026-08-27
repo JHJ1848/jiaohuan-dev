@@ -58,18 +58,84 @@
 
 - Claude Code：插件名为 `jiaohuanworkflow`，使用 `jiaohuanworkflow:<skill>`，例如 `jiaohuanworkflow:debug`。
 - Codex：保留已安装的 `jiaohuan-develop-workflow:<skill>` 兼容名称，例如 `jiaohuan-develop-workflow:debug`。
-- ZCode：`ZCode` 分支使用 `.zcode-plugin/plugin.json`，插件名同为 `jiaohuan-develop-workflow`，Skill 前缀为 `jiaohuan-develop-workflow:<skill>`；会话启动时由 `hooks/hooks.json` 注入合集感知提醒（见下文 ZCode Hook）。
+- ZCode：`ZCode` 分支使用 `.zcode-plugin/plugin.json`，插件名同为 `jiaohuan-develop-workflow`，Skill 前缀为 `jiaohuan-develop-workflow:<skill>`；会话启动时由 `hooks/hooks.json` 注入合集感知提醒（安装步骤见下文 ZCode 安装指南）。
 - Gemini、Claude、Codex 的裸目录副本仅用于共享发布和兼容发现，唯一 Skill 源仍是 `~/.agents/skills`，不得在端点手工修改。
 
 Claude 插件根目录包含 `.claude-plugin/plugin.json` 和 `skills/`；Codex 插件根目录包含 `.codex-plugin/plugin.json` 和同一份 `skills/`。ZCode 兼容识别 `.zcode-plugin/`、`.claude-plugin/` 与 `.codex-plugin/` 三种清单位置，`ZCode` 分支以原生 `.zcode-plugin/` 为准。因此同一套能力可被不同宿主按各自命名空间发现。
 
-## ZCode Hook
+## ZCode 安装指南
 
-`hooks/session-start.js` 在每次 SessionStart（含 `startup`、`resume`、`clear`、`compact`）通过 `additionalContext` 注入一条只读提醒：动态枚举 `skills/` 下实际存在的 SKILL.md 清单与主链路，落实“新会话必读合集”规则。该 hook 只输出上下文、不写文件、不维护状态，失败时静默退出不阻塞会话；需要 Node.js 运行时。
+本节面向 ZCode 用户，从零完成叫唤开发工作流的安装、验证与更新。安装产物是 ZCode 官方插件目录下的本地市场，安装后插件身份为 `jiaohuan-develop-workflow@jiaohuan-local`。
 
-ZCode 引用的插件源必须是仓库工作区之外的稳定导出副本：`~/.zcode/plugin-workspace/jiaohuan-develop-workflow`（含 `.zcode-plugin/`、`hooks/`、`skills/`、`rules/`、`tools/`、`README.md` 和记录来源分支/提交/时间的 `EXPORT-INFO.md`）。禁止把 Git 工作区直接注册为插件源——切换分支会改变或移除 `ZCode` 分支专属文件。更新流程：检出最新代码后执行 `node tools/export-zcode.js`（跨平台，无 Git Bash 依赖），再在客户端重新加载插件。
+### 前置条件
 
-客户端接入走“插件市场”入口：根目录 `marketplace.json` 声明本地市场 `jiaohuan-local`，其中唯一插件 `jiaohuan-develop-workflow` 的 `source` 为 `./`。运行 `node tools/export-zcode.js` 后按输出提示操作：Settings → Plugin Management → Discover → “+”选择导出副本目录，市场添加成功后在插件卡片上点击安装；插件身份为 `jiaohuan-develop-workflow@jiaohuan-local`。
+- ZCode 客户端（含 Settings → Plugin Management 插件管理界面）。
+- Node.js >= 16.7：SessionStart hook 与 `project-memory` 命令行(CLI)的运行时，需保证 `node` 在 PATH 中。
+- Git 可选：用于在导出副本中记录来源分支与提交指纹；使用压缩包下载时脚本会提示并跳过校验。
+
+### 第一步：获取仓库并检出 ZCode 分支
+
+```bash
+git clone https://github.com/JHJ1848/jiaohuan-dev.git
+cd jiaohuan-dev
+git checkout ZCode
+```
+
+`ZCode` 分支承载全部 ZCode 差异（`.zcode-plugin/` 宿主清单、`hooks/`、`marketplace.json`）；`main` 分支不包含这些文件。
+
+### 第二步：一键导出到 ZCode 标准目录
+
+```bash
+node tools/export-zcode.js
+```
+
+脚本行为：
+
+- 默认导出到 `~/.zcode/plugin-workspace/jiaohuan-develop-workflow`（Windows 为 `C:\Users\<用户名>\.zcode\plugin-workspace\jiaohuan-develop-workflow`），可用 `--dest <目录>` 改变位置。
+- 先删除旧副本，再复制 `.zcode-plugin/`、`hooks/`、`skills/`、`rules/`、`tools/`、`README.md`、`marketplace.json`，并生成 `EXPORT-INFO.md` 记录来源分支、提交和导出时间。
+- 仅允许在 `ZCode` 分支执行；其他分支会报错，确认继续可加 `--force`。
+
+边界：禁止把 Git 工作区直接注册为插件源——切换分支会改变或移除 `ZCode` 分支专属文件；客户端引用的必须是这份仓库外的导出副本。
+
+### 第三步：在客户端添加市场并安装
+
+1. 打开 Settings → Plugin Management → Discover 标签。
+2. 点击右上角 “+”（添加插件市场）。
+3. 粘贴第二步输出的导出路径，或点击“选择目录”选中该文件夹，再点击“添加插件市场”。
+4. 确认出现市场 `jiaohuan-local` 与插件卡片 `jiaohuan-develop-workflow`。
+5. 在插件卡片上点击安装（Get）；安装后插件默认启用，身份为 `jiaohuan-develop-workflow@jiaohuan-local`。
+
+### 第四步：验证安装
+
+新开一个会话，依次确认：
+
+1. **技能发现**：技能列表或 `/` 菜单出现 10 个 `jiaohuan-develop-workflow:*` 技能：`workflow`、`explore`、`dev`、`debug`、`bugfix`、`project-memory`、`memory-get`、`memory-put`、`session-reader`、`session-gotcha-extractor`。
+2. **Hook 注入**：会话启动上下文出现【叫唤开发工作流合集感知】提醒，列出技能清单与主链路。
+3. **CLI 冒烟**（可选）：
+
+```bash
+node ~/.zcode/plugin-workspace/jiaohuan-develop-workflow/skills/project-memory/scripts/project-memory.js outline --file <目标项目内的Markdown> --depth 3
+```
+
+命令行(CLI)按目标项目作用域工作；把插件目录自身当作目标会被正确拒绝。
+
+### 更新与卸载
+
+- 更新：检出最新 `ZCode` 分支 → 重新运行 `node tools/export-zcode.js` → 客户端 Installed 页将该插件禁用再启用（或重启客户端）完成重新加载。
+- 卸载：客户端插件详情页卸载即可；导出副本目录可整体删除，不影响仓库。
+
+### 常见问题
+
+| 现象 | 原因与处理 |
+| --- | --- |
+| “Marketplace manifest not found in directory” | “+”添加的是插件市场，要求目录根部存在 `marketplace.json`；请选择导出副本目录，不要选择仓库工作区或 `.zcode-plugin/` 子目录。 |
+| 导出脚本报“仅允许在 ZCode 分支执行” | 先 `git checkout ZCode`；确需在其他分支导出时加 `--force`。 |
+| Hook 未注入 | 确认插件处于启用状态（Installed 页开关）；确认 `node` 可用（hook 以 `process` 类型调用 `node`）；必要时查看 ZCode 日志中的 hook 运行记录。 |
+| 技能未出现在会话 | 检查是否被同名更高优先级副本遮蔽，或该技能在 Settings → Skills 中被禁用；ZCode 技能发现顺序以官方配置指南为准。 |
+
+### Hook 设计边界
+
+`hooks/session-start.js` 在每次 SessionStart（`startup`、`resume`、`clear`、`compact`）通过 `additionalContext` 注入一条只读提醒：动态枚举 `skills/` 下实际存在的 SKILL.md 清单与主链路，落实“新会话必读合集”规则。它只输出上下文、不写文件、不维护状态，失败时静默退出不阻塞会话。
 
 ## 主链路
 
