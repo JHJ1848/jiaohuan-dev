@@ -1,0 +1,11 @@
+{
+  "name": "jiaohuan-local",
+  "description": "叫唤开发工作流本地插件市场（ZCode 分支）。",
+  "plugins": [
+    {
+      "name": "jiaohuan-develop-workflow",
+      "source": "./",
+      "description": "叫唤开发工作流：开发、诊断、探索与项目记忆 Skill 合集（ZCode 宿主版，含合集感知 Hook）。"
+    }
+  ]
+}

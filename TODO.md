@@ -16,7 +16,8 @@
 
 - [ ] 在真实目标项目按业务权限和真实数据重复关键 CLI/HTTP 场景；隔离样例不能代替业务验收。
 - [ ] 在隔离样例人工确认同标题场景的 `put --replace --change-record docs/change/<记录>.md`：无替代记录拒绝、有效变更记录后替换、代码围栏内标题不截断场景。
-- [ ] 核实 Antigravity 宿主的 `plugin.json` 规范，再决定是否添加版本或能力字段。
+- [ ] 在 ZCode 客户端添加 `jiaohuan-local` 市场并安装 `jiaohuan-develop-workflow@jiaohuan-local`；客户端内确认 10 个技能可触发、SessionStart hook 注入合集感知。当前仅完成 CLI/脚本级验证，客户端 GUI 行为未验收。
+- [ ] ZCode 分支已移除根 `plugin.json`（Antigravity 清单，`main` 分支仍保留）；如需恢复 AGY 支持，从 `main` 找回该文件。
 - [x] 已明确仓库开发候选与 `~/.agents/skills` 发布源的单向路径；实际发布时覆盖前备份并按机器规则同步各 Agent 端点。
 - [x] 已建立首个 Git 基线并推送 `origin/main`；提交前已核对未跟踪文件与发布包内容。
 
@@ -26,5 +27,5 @@
 - [ ] 基于真实任务复盘场景(Scene)与陷阱(Gotcha)的边界；当前 Gotcha 固定为第六段，未恢复平行索引。
 - [ ] 在兼容期后评估是否隐藏 `bugfix` 入口，仅保留 `debug -> dev` 的语义路由；不得形成重复工作流。
 - [ ] 根据真实任务反馈调整 Explore 路由、秘密检测特征和路径摘要粒度；不引入持久状态机、向量库或全仓缓存。
-- [ ] 为 `session-reader` 在用户授权的隔离样例中补做 Codex、Claude、Gemini 会话格式人工验收；厂商格式变化只修改适配器，不复制原始会话。
+- [ ] 为 `session-reader` 在用户授权的隔离样例中补做 Codex、Claude、Gemini、ZCode 会话格式人工验收（ZCode 已通过本机真实 rollout 只读冒烟，正式验收仍需隔离样例）；厂商格式变化只修改适配器，不复制原始会话。
 - [ ] 评估“当前会话”宿主上下文导出能力；无法取得完整原文时必须返回覆盖范围有限，不得伪造完整记录。

@@ -1,0 +1,17 @@
+{
+  "name": "jiaohuan-develop-workflow",
+  "version": "0.3.0+zcode.20260827094452",
+  "description": "叫唤开发工作流：开发、诊断、探索与项目记忆 Skill 合集（ZCode 宿主版，含合集感知 Hook）。",
+  "author": {
+    "name": "JHJ"
+  },
+  "keywords": [
+    "workflow",
+    "development",
+    "debugging",
+    "project-memory"
+  ],
+  "license": "UNLICENSED",
+  "skills": "./skills/",
+  "hooks": "hooks"
+}

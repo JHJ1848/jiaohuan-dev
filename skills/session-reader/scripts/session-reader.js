@@ -7,7 +7,7 @@ const os = require('os');
 const path = require('path');
 
 const ROLES = new Set(['user', 'assistant']);
-const PROVIDERS = new Set(['codex', 'claude', 'gemini', 'file']);
+const PROVIDERS = new Set(['codex', 'claude', 'gemini', 'zcode', 'file']);
 const FORMAT_VALUES = new Set(['json', 'markdown']);
 
 function fail(message) {
@@ -19,7 +19,7 @@ function usage(message) {
     process.stderr.write(`session-reader: ${message}\n`);
   }
   process.stderr.write('用法：session-reader.js read --file <文件> [--provider <名称>] [--query <关键词>] [--from <序号>] [--to <序号>] [--format json|markdown]\n');
-  process.stderr.write('或：session-reader.js read --provider <codex|claude|gemini> --session <会话ID> [同上选项]\n');
+  process.stderr.write('或：session-reader.js read --provider <codex|claude|gemini|zcode> --session <会话ID> [同上选项]\n');
   process.exitCode = 1;
 }
 
@@ -54,6 +54,7 @@ function providerRoot(provider) {
     codex: [path.join(home, '.codex', 'sessions'), path.join(home, '.codex', 'archived_sessions')],
     claude: [path.join(home, '.claude', 'projects'), path.join(home, '.claude', 'sessions')],
     gemini: [path.join(home, '.gemini', 'tmp'), path.join(home, '.gemini', 'history')],
+    zcode: [path.join(home, '.zcode', 'rollout'), path.join(home, '.zcode', 'cli', 'rollout')],
   };
   return roots[provider] || [];
 }
@@ -98,7 +99,7 @@ function resolveSource(options) {
   }
   const provider = String(options.provider || (options.file ? 'file' : '')).toLowerCase();
   if (!PROVIDERS.has(provider)) {
-    fail('--provider 只能是 codex、claude、gemini 或 file。');
+    fail('--provider 只能是 codex、claude、gemini、zcode 或 file。');
   }
   if (options.file) {
     const filePath = path.resolve(options.file);
@@ -161,8 +162,82 @@ function candidateMessage(item) {
   return null;
 }
 
-function parseJsonLines(content, provider) {
+// ZCode rollout 的每一行是一条 model_io 记录：request.messages 携带截至该次调用的完整历史，
+// response.text 是该次可见助手输出。按“首次出现”重建对话并全局去重，跳过 system/工具/推理块。
+function zcodeBlockText(content) {
+  if (typeof content === 'string') return content;
+  if (!Array.isArray(content)) return '';
+  const omittedTypes = [];
+  const texts = [];
+  content.forEach((block) => {
+    if (!block || typeof block !== 'object') return;
+    const type = String(block.type || '').toLowerCase();
+    if (type && !['text', 'input_text', 'output_text'].includes(type)) {
+      omittedTypes.push(type);
+      return;
+    }
+    if (typeof block.text === 'string' && block.text.trim()) texts.push(block.text);
+  });
+  return { text: texts.join('\n'), omittedTypes };
+}
+
+function parseZcodeRollout(content) {
   const messages = [];
+  const seen = new Set();
+  const omitted = new Set();
+  let invalidLines = 0;
+  let modelIoLines = 0;
+  const lines = content.split(/\r?\n/);
+
+  const addMessage = (roleValue, text) => {
+    const role = normalizeRole(roleValue);
+    const clean = String(text || '').trim();
+    if (!clean || !ROLES.has(role)) return;
+    const key = `${role}\n${clean}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    messages.push({ role, text: clean });
+  };
+
+  lines.forEach((line) => {
+    if (!line.trim()) return;
+    let item;
+    try {
+      item = JSON.parse(line);
+    } catch (error) {
+      invalidLines += 1;
+      return;
+    }
+    if (!item || item.type !== 'model_io') {
+      omitted.add('unknown');
+      return;
+    }
+    modelIoLines += 1;
+    const requestMessages = item.request && Array.isArray(item.request.messages) ? item.request.messages : [];
+    requestMessages.forEach((message) => {
+      if (!message || typeof message !== 'object') return;
+      const extracted = zcodeBlockText(message.content);
+      if (extracted && typeof extracted === 'object' && 'omittedTypes' in extracted) {
+        extracted.omittedTypes.forEach((type) => {
+          if (type.includes('tool')) omitted.add('tool');
+          else if (type === 'thinking' || type === 'reasoning') omitted.add('thinking');
+        });
+      }
+      const role = normalizeRole(message.role);
+      if (!role) {
+        omitted.add('system');
+        return;
+      }
+      addMessage(role, typeof extracted === 'string' ? extracted : extracted.text);
+    });
+    addMessage('assistant', item.response && item.response.text);
+  });
+
+  if (modelIoLines === 0) return null;
+  return { messages, omitted: [...omitted], line_count: lines.length, invalid_lines: invalidLines, provider: 'zcode' };
+}
+
+function parseJsonLines(content, provider) {  const messages = [];
   const omitted = new Set();
   let invalidLines = 0;
   const lines = content.split(/\r?\n/);
@@ -251,6 +326,10 @@ function parseContent(content, filePath, provider) {
   const extension = path.extname(filePath).toLowerCase();
   if (extension === '.md' || extension === '.markdown' || extension === '.txt') {
     return parseMarkdown(content);
+  }
+  if (provider === 'zcode') {
+    const rollout = parseZcodeRollout(content);
+    if (rollout) return rollout;
   }
   return parseJsonLines(content, provider);
 }

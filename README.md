@@ -1,6 +1,6 @@
 # 叫唤-开发-工作流
 
-这是一个跨宿主插件(Plugin)，内部包含多个可独立触发的技能(Skill)，用于沉淀“架构师 + 开发”的工程原则、开发/排障工作流和项目记忆约束。`~/.agents/skills` 是共享 Skill 源；`.codex-plugin/` 与 `.claude-plugin/` 是宿主插件清单，插件只负责合集身份、版本和自动发现，不把多个 Skill 合并成一个文件。
+这是一个跨宿主插件(Plugin)，内部包含多个可独立触发的技能(Skill)，用于沉淀“架构师 + 开发”的工程原则、开发/排障工作流和项目记忆约束。`~/.agents/skills` 是共享 Skill 源；`.codex-plugin/`、`.claude-plugin/` 与 `.zcode-plugin/` 是宿主插件清单，插件只负责合集身份、版本和自动发现，不把多个 Skill 合并成一个文件。`ZCode` 分支额外提供 `hooks/`（SessionStart 合集感知）和 `session-reader` 的 ZCode 会话源适配。
 
 ## Skill 专题图
 
@@ -58,9 +58,18 @@
 
 - Claude Code：插件名为 `jiaohuanworkflow`，使用 `jiaohuanworkflow:<skill>`，例如 `jiaohuanworkflow:debug`。
 - Codex：保留已安装的 `jiaohuan-develop-workflow:<skill>` 兼容名称，例如 `jiaohuan-develop-workflow:debug`。
+- ZCode：`ZCode` 分支使用 `.zcode-plugin/plugin.json`，插件名同为 `jiaohuan-develop-workflow`，Skill 前缀为 `jiaohuan-develop-workflow:<skill>`；会话启动时由 `hooks/hooks.json` 注入合集感知提醒（见下文 ZCode Hook）。
 - Gemini、Claude、Codex 的裸目录副本仅用于共享发布和兼容发现，唯一 Skill 源仍是 `~/.agents/skills`，不得在端点手工修改。
 
-Claude 插件根目录包含 `.claude-plugin/plugin.json` 和 `skills/`；Codex 插件根目录包含 `.codex-plugin/plugin.json` 和同一份 `skills/`。因此同一套能力可被不同宿主按各自命名空间发现。
+Claude 插件根目录包含 `.claude-plugin/plugin.json` 和 `skills/`；Codex 插件根目录包含 `.codex-plugin/plugin.json` 和同一份 `skills/`。ZCode 兼容识别 `.zcode-plugin/`、`.claude-plugin/` 与 `.codex-plugin/` 三种清单位置，`ZCode` 分支以原生 `.zcode-plugin/` 为准。因此同一套能力可被不同宿主按各自命名空间发现。
+
+## ZCode Hook
+
+`hooks/session-start.js` 在每次 SessionStart（含 `startup`、`resume`、`clear`、`compact`）通过 `additionalContext` 注入一条只读提醒：动态枚举 `skills/` 下实际存在的 SKILL.md 清单与主链路，落实“新会话必读合集”规则。该 hook 只输出上下文、不写文件、不维护状态，失败时静默退出不阻塞会话；需要 Node.js 运行时。
+
+ZCode 引用的插件源必须是仓库工作区之外的稳定导出副本：`~/.zcode/plugin-workspace/jiaohuan-develop-workflow`（含 `.zcode-plugin/`、`hooks/`、`skills/`、`rules/`、`tools/`、`README.md` 和记录来源分支/提交/时间的 `EXPORT-INFO.md`）。禁止把 Git 工作区直接注册为插件源——切换分支会改变或移除 `ZCode` 分支专属文件。更新流程：检出最新代码后重新导出覆盖该目录，再在客户端重新加载插件。
+
+客户端接入走“插件市场”入口：根目录 `marketplace.json` 声明本地市场 `jiaohuan-local`，其中唯一插件 `jiaohuan-develop-workflow` 的 `source` 为 `./`。在 Settings → Plugin Management → Discover → “+”选择导出副本目录，市场添加成功后在插件卡片上点击安装；插件身份为 `jiaohuan-develop-workflow@jiaohuan-local`。
 
 ## 主链路
 
@@ -128,3 +137,5 @@ bash skills/debug/scripts/http-check.sh \
 隔离样例已人工验收 CLI 初始化、双向索引、四种读取策略、标题树、主/子任务草稿、确认归档、GUI 回环接口、七日周归档、七周清理和 HTTP 脱敏请求检查。新增的 `--replace --change-record` 仅完成静态核查，待用户授权的隔离样例人工验收。以上均不是目标项目的真实业务验收。
 
 发布时按单向路径执行：`~/.agents/skills` 共享发布源 -> Git 仓库及宿主插件副本 -> Gemini、Claude 等 Agent 端点；覆盖前先备份，禁止两处手工漂移。同步逻辑不属于项目记忆运行时。Codex 与 Claude 的 `plugin.json` 均只声明宿主认可的插件元数据，不把运行时规则重复写入清单。当前 Claude 本地插件已安装为 `jiaohuanworkflow@jiaohuanworkflow`；后续版本仍需从中央源重新同步并重新安装。
+
+ZCode 差异化边界（仅存在于 `ZCode` 分支）：`.zcode-plugin/plugin.json` 版本为 `0.3.0+zcode.<时间戳>`；session-reader 的 `zcode` 来源解析以 `model_io` 记录结构为准，厂商字段变化只修改读取适配器；ZCode rollout 真实会话已完成本机只读冒烟验收（可见消息重建、system/thinking 省略报告），跨机器与历史版本格式仍需人工确认后再用于正式提炼。
