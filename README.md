@@ -67,9 +67,9 @@ Claude 插件根目录包含 `.claude-plugin/plugin.json` 和 `skills/`；Codex 
 
 `hooks/session-start.js` 在每次 SessionStart（含 `startup`、`resume`、`clear`、`compact`）通过 `additionalContext` 注入一条只读提醒：动态枚举 `skills/` 下实际存在的 SKILL.md 清单与主链路，落实“新会话必读合集”规则。该 hook 只输出上下文、不写文件、不维护状态，失败时静默退出不阻塞会话；需要 Node.js 运行时。
 
-ZCode 引用的插件源必须是仓库工作区之外的稳定导出副本：`~/.zcode/plugin-workspace/jiaohuan-develop-workflow`（含 `.zcode-plugin/`、`hooks/`、`skills/`、`rules/`、`tools/`、`README.md` 和记录来源分支/提交/时间的 `EXPORT-INFO.md`）。禁止把 Git 工作区直接注册为插件源——切换分支会改变或移除 `ZCode` 分支专属文件。更新流程：检出最新代码后重新导出覆盖该目录，再在客户端重新加载插件。
+ZCode 引用的插件源必须是仓库工作区之外的稳定导出副本：`~/.zcode/plugin-workspace/jiaohuan-develop-workflow`（含 `.zcode-plugin/`、`hooks/`、`skills/`、`rules/`、`tools/`、`README.md` 和记录来源分支/提交/时间的 `EXPORT-INFO.md`）。禁止把 Git 工作区直接注册为插件源——切换分支会改变或移除 `ZCode` 分支专属文件。更新流程：检出最新代码后执行 `node tools/export-zcode.js`（跨平台，无 Git Bash 依赖），再在客户端重新加载插件。
 
-客户端接入走“插件市场”入口：根目录 `marketplace.json` 声明本地市场 `jiaohuan-local`，其中唯一插件 `jiaohuan-develop-workflow` 的 `source` 为 `./`。在 Settings → Plugin Management → Discover → “+”选择导出副本目录，市场添加成功后在插件卡片上点击安装；插件身份为 `jiaohuan-develop-workflow@jiaohuan-local`。
+客户端接入走“插件市场”入口：根目录 `marketplace.json` 声明本地市场 `jiaohuan-local`，其中唯一插件 `jiaohuan-develop-workflow` 的 `source` 为 `./`。运行 `node tools/export-zcode.js` 后按输出提示操作：Settings → Plugin Management → Discover → “+”选择导出副本目录，市场添加成功后在插件卡片上点击安装；插件身份为 `jiaohuan-develop-workflow@jiaohuan-local`。
 
 ## 主链路
 

@@ -3,7 +3,7 @@
 该文档用于记录本项目（叫唤-开发-工作流）在开发过程中的重要业务逻辑、架构决定、问题排查记录及未形成文档的知识点。
 
 ## 架构与背景
-- **项目定位**：跨宿主插件包，集合“叫唤-开发-工作流”的自定义技能(Skill)与规则(Rule)。`main` 分支服务 Claude Code 与 Codex（并保留 Antigravity 根清单）；`ZCode` 分支专精 ZCode 宿主，已移除 Antigravity 清单，插件源经 `tools/export-zcode.sh` 导出到 `~/.zcode/plugin-workspace/jiaohuan-develop-workflow`。
+- **项目定位**：跨宿主插件包，集合“叫唤-开发-工作流”的自定义技能(Skill)与规则(Rule)。`main` 分支服务 Claude Code 与 Codex（并保留 Antigravity 根清单）；`ZCode` 分支专精 ZCode 宿主，已移除 Antigravity 清单，插件源经 `tools/export-zcode.js` 导出到 `~/.zcode/plugin-workspace/jiaohuan-develop-workflow`。
 - **使用方式**：可以被其他项目通过 `plugins.json` 引用或者放置在全局配置中。
 
 ## 变更记录
@@ -101,3 +101,4 @@
 - **稳定导出副本**：为避免 Git 工作区分支切换影响宿主引用，ZCode 插件源固定使用仓库外导出副本 `~/.zcode/plugin-workspace/jiaohuan-develop-workflow`（含 `.zcode-plugin/`、`hooks/`、`skills/`、`rules/`、`tools/`、`README.md`、来源指纹 `EXPORT-INFO.md`），导出后已验证 hook 与 project-memory CLI 可独立运行且 CLI 正确按目标项目作用域拒绝插件目录内路径；禁止把 Git 工作区直接注册为插件源，更新时重新导出覆盖。
 - **市场清单修正**：ZCode 客户端 “+” 入口添加的是插件市场，要求目录根部存在 `marketplace.json`（`{ name, plugins[], pluginRoot? }`），单插件目录会报 “Marketplace manifest not found”。已在仓库根新增 `marketplace.json`（市场 `jiaohuan-local`，插件 `jiaohuan-develop-workflow`，`source: "./"`）并重新导出；不在 `.zcode-plugin/` 内放第二份清单，避免相对路径基准歧义。插件安装后身份为 `jiaohuan-develop-workflow@jiaohuan-local`。
 - **内外副本统一与 AGY 清理**：新增 `tools/export-zcode.sh` 作为仓库 -> 导出副本的唯一同步路径（仅允许在 ZCode 分支执行，自动写入来源分支/提交/时间），导出内容与工作区已 diff 校验一致。ZCode 分支移除根 `plugin.json`（Antigravity 清单，`main` 分支仍保留）；`MEMORY.md` 架构定位与 `TODO.md` 验收清单同步改为 ZCode 口径。全仓审计后，历史变更记录（2026-08-17/2026-08-18）中的 Antigravity 字样属当时事实，保留不改写；`.agents/` 下 AGY 会话记录是本机 gitignore 材料，不入库也不属于插件发布内容。
+- **Node 一键导出与客户端验收**：以跨平台 `tools/export-zcode.js` 取代 `export-zcode.sh`（无 Git Bash 依赖，支持 `--dest`/`--force`，导出后打印 ZCode 客户端市场安装指引）；提交推送后经 `jiaohuan-local` 市场安装成功，客户端会话中确认 SessionStart 合集感知注入与 10 个技能可见，TODO 对应验收项已勾选。

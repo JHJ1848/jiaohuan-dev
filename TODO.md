@@ -16,7 +16,7 @@
 
 - [ ] 在真实目标项目按业务权限和真实数据重复关键 CLI/HTTP 场景；隔离样例不能代替业务验收。
 - [ ] 在隔离样例人工确认同标题场景的 `put --replace --change-record docs/change/<记录>.md`：无替代记录拒绝、有效变更记录后替换、代码围栏内标题不截断场景。
-- [ ] 在 ZCode 客户端添加 `jiaohuan-local` 市场并安装 `jiaohuan-develop-workflow@jiaohuan-local`；客户端内确认 10 个技能可触发、SessionStart hook 注入合集感知。当前仅完成 CLI/脚本级验证，客户端 GUI 行为未验收。
+- [x] 在 ZCode 客户端添加 `jiaohuan-local` 市场并安装 `jiaohuan-develop-workflow@jiaohuan-local`（2026-08-27 验收：客户端会话中出现【叫唤开发工作流合集感知】SessionStart 注入，`jiaohuan-develop-workflow:*` 10 个技能均在技能列表可见）。
 - [ ] ZCode 分支已移除根 `plugin.json`（Antigravity 清单，`main` 分支仍保留）；如需恢复 AGY 支持，从 `main` 找回该文件。
 - [x] 已明确仓库开发候选与 `~/.agents/skills` 发布源的单向路径；实际发布时覆盖前备份并按机器规则同步各 Agent 端点。
 - [x] 已建立首个 Git 基线并推送 `origin/main`；提交前已核对未跟踪文件与发布包内容。
