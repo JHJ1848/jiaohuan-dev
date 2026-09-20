@@ -14,8 +14,8 @@ description: "[jiaohuan-dev] 在开发、诊断、缺陷修复或任务含义不
 |---|---|---|
 | **开发 (有实施变更)** | `memory-get -> dev -> code-review -> memory-put` | 确认目标、范围、验收标准 |
 | **开发 (仅文档/无实施变更)** | `memory-get -> dev -> memory-put` | 确认目标、范围、验收标准 |
-| **只读诊断** | `memory-get -> debug -> memory-put` | 确认根因或排障事实 |
-| **缺陷修复 (Bugfix)** | `memory-get -> debug -> dev -> code-review -> memory-put` | 确认根因与最小修复计划 |
+| **只读诊断** | `memory-get -> bugfix -> memory-put` | 确认根因或排障事实 |
+| **缺陷修复 (Bugfix)** | `memory-get -> bugfix -> dev -> code-review -> memory-put` | 确认根因与最小修复计划 |
 | **探索 (Explore)** | `memory-get -> explore -> memory-put` | 澄清目标或决策下一步 |
 
 ## 执行规范

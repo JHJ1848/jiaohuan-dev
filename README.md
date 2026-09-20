@@ -9,10 +9,9 @@
 | 图示文件 | 对应 Skill | 作用说明 |
 | --- | --- | --- |
 | [`skill-workflow.svg`](docs/assets/skill-workflow.svg) | `workflow` | 按任务语义选择最小闭环；有实施变更时在归档前增加 `code-review` 收尾节点，不维护持久状态机(State Machine)或调度器。 |
-| [`skill-explore.svg`](docs/assets/skill-explore.svg) | `explore` | 目标、范围或历史意图不清时只读梳理现状和未知项，决定转入 `debug`、`dev` 或停止。 |
-| [`skill-dev.svg`](docs/assets/skill-dev.svg) | `dev` | 计划确认后实施最小、可逆改动，保持时序、数据和影响面不变量；出现计划外疑点时回交 `debug`。 |
-| [`skill-debug.svg`](docs/assets/skill-debug.svg) | `debug` | 只读取证，按外部环境、真实数据、调用链与历史意图逐层验证单一假设，输出根因或未知项及修复计划。 |
-| [`skill-bugfix.svg`](docs/assets/skill-bugfix.svg) | `bugfix` | 兼容旧名称的缺陷入口，连接 `memory-get`、`debug`、用户确认、`dev`、`code-review` 和 `memory-put`；仅诊断时可直接交接归档。 |
+| [`skill-explore.svg`](docs/assets/skill-explore.svg) | `explore` | 目标、范围或历史意图不清时只读梳理现状和未知项，决定转入 `bugfix`、`dev` 或停止。 |
+| [`skill-dev.svg`](docs/assets/skill-dev.svg) | `dev` | 计划确认后实施最小、可逆改动，保持时序、数据和影响面不变量；出现计划外疑点时回交 `bugfix`。 |
+| [`skill-bugfix.svg`](docs/assets/skill-bugfix.svg) | `bugfix` | 负责缺陷取证、根因确认和修复前分析，再连接用户确认、`dev`、`code-review` 和 `memory-put`。 |
 | [`skill-project-memory.svg`](docs/assets/skill-project-memory.svg) | `project-memory` | 约束项目记忆的读取、任务交接和确认后归档边界，不接管任务调度，也不建立平行索引。 |
 | [`skill-memory-get.svg`](docs/assets/skill-memory-get.svg) | `memory-get` | 开发或诊断前读取规则、主记忆和已登记匹配文档的最小相关上下文；用户明确请求时可查看记忆树。 |
 | [`skill-memory-put.svg`](docs/assets/skill-memory-put.svg) | `memory-put` | 汇总任务临时证据，经价值评估和用户确认后写入 `docs/` 正式记忆；未确认时只保留临时材料。 |
@@ -25,8 +24,6 @@
 ![explore 专题图](docs/assets/skill-explore.svg)
 
 ![dev 专题图](docs/assets/skill-dev.svg)
-
-![debug 专题图](docs/assets/skill-debug.svg)
 
 ![bugfix 专题图](docs/assets/skill-bugfix.svg)
 
@@ -41,7 +38,7 @@
 ## 四层结构
 
 1. **共享工程原则**：证据优先、先理解后修改、历史意图追溯、最小且可逆的改动、控制变量、按影响面验证和风险复核。
-2. **工作流**：`workflow` 负责语义路由，`explore`、`debug`、`dev` 分别处理澄清、诊断和开发；`bugfix` 保留为兼容路由。
+2. **工作流**：`workflow` 负责语义路由，`explore`、`bugfix`、`dev` 分别处理澄清、缺陷分析和开发。
 3. **项目记忆与轻量存储**：`project-memory`、`memory-get`、`memory-put`，以及其单一 CLI、策略、索引、任务临时证据、路径摘要与归档实现。
 4. **经验提炼与外部引用扩展**：`session-gotcha-extractor` 提炼场景(Scene)和陷阱(Gotcha)；`code-review` 与 `requesting-code-review` 提供独立收尾审查；全局方法型技能(Skill)仅按需引用，不属于本插件。
 
@@ -51,8 +48,8 @@
 
 本项目的发布单位是插件，Skill 仍按目录独立维护：
 
-- Claude Code：插件名为 `jiaohuanworkflow`，使用 `jiaohuanworkflow:<skill>`，例如 `jiaohuanworkflow:debug`。
-- Codex：保留已安装的 `jiaohuan-develop-workflow:<skill>` 兼容名称，例如 `jiaohuan-develop-workflow:debug`。
+- Claude Code：插件名为 `jiaohuanworkflow`，使用 `jiaohuanworkflow:<skill>`，例如 `jiaohuanworkflow:bugfix`。
+- Codex：使用 `jiaohuan-develop-workflow:<skill>`，例如 `jiaohuan-develop-workflow:bugfix`。
 - Gemini、Claude、Codex 的裸目录副本仅用于共享发布和兼容发现，唯一 Skill 源仍是 `~/.agents/skills`，不得在端点手工修改。
 
 Claude 插件根目录包含 `.claude-plugin/plugin.json` 和 `skills/`；Codex 插件根目录包含 `.codex-plugin/plugin.json` 和同一份 `skills/`。同一套能力可被不同宿主按各自命名空间发现。
@@ -61,8 +58,8 @@ Claude 插件根目录包含 `.claude-plugin/plugin.json` 和 `skills/`；Codex 
 
 ```text
 开发：memory-get -> dev -> code-review -> memory-put
-诊断：memory-get -> debug -> memory-put
-修复：memory-get -> debug -> dev -> code-review -> memory-put
+诊断：memory-get -> bugfix -> memory-put
+修复：memory-get -> bugfix -> dev -> code-review -> memory-put
 探索：memory-get -> explore -> memory-put
 ```
 
@@ -77,7 +74,7 @@ Claude 插件根目录包含 `.claude-plugin/plugin.json` 和 `skills/`；Codex 
 用户明确查看文档结构时，使用只读标题树命令：
 
 ```bash
-node skills/project-memory/scripts/project-memory.js outline --file skills/debug/SKILL.md --depth 3
+node skills/project-memory/scripts/project-memory.js outline --file skills/bugfix/SKILL.md --depth 3
 ```
 
 它只返回标题、层级和行号；内部按需读取文件但不返回正文，不创建索引、不改变记忆策略。需要完整枝叶时将 `--depth` 调到 `6`。标题树是导航摘要，不是事实验证。
@@ -105,17 +102,9 @@ node skills/project-memory/scripts/project-memory.js path \
 
 统一入口为 `skills/project-memory/scripts/project-memory.js`。本地图形界面(GUI)位于 `tools/project-memory-settings/`，仅绑定 `127.0.0.1`，经统一入口读取策略、轮转和清理；它不直接写正式记忆、不注册计划任务、不修改全局智能体(Agent)设置。
 
-接口证据使用 `skills/debug/scripts/http-check.sh`。请求体放入临时文件，敏感请求头只通过 `--secret-header` 环境变量传入；写请求和读请求分别执行并断言关键字段，失败回到 `debug`。令牌默认由用户提供；用户明确授权登录接口和凭据时，仅在任务级临时命令中换取令牌，不建立通用登录测试平台。真实请求必须先得到用户对目标环境的明确授权。
+接口证据使用外部命令或项目现有工具。请求体放入临时文件，敏感请求头只通过环境变量传入；写请求和读请求分别执行并断言关键字段，失败回到 `bugfix`。真实请求必须先得到用户对目标环境的明确授权。
 
 ```bash
-bash skills/debug/scripts/http-check.sh \
-  --url "$BASE_URL/<path>" \
-  --method POST \
-  --header 'Content-Type: application/json' \
-  --secret-header 'Authorization=API_TOKEN' \
-  --data-file "$REQUEST_FILE" \
-  --expect-status 200 \
-  --expect-contains '关键字段'
 ```
 
 ## 发布边界

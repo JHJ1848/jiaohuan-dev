@@ -1,6 +1,10 @@
 # 本机智能体运行记录
 /.agents/
 /.playwright-cli/
+# 仅用于本地开发的界面与项目工作记录
+/dashboard/
+/MEMORY.md
+/TODO.md
 
 # 项目记忆与历史材料不纳入首版源码基线；仅保留公开流程图
 /docs/*
