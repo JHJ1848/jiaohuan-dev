@@ -1,10 +1,10 @@
 # 叫唤-开发-工作流
 
-这是一个跨宿主插件(Plugin)，内部包含多个可独立触发的技能(Skill)，用于沉淀“架构师 + 开发”的工程原则、开发/排障工作流和项目记忆约束。`~/.agents/skills` 是共享 Skill 源；`.codex-plugin/`、`.claude-plugin/` 与 `.zcode-plugin/` 是宿主插件清单，插件只负责合集身份、版本和自动发现，不把多个 Skill 合并成一个文件。`ZCode` 分支额外提供 `hooks/`（SessionStart 合集感知）和 `session-reader` 的 ZCode 会话源适配。
+这是一个跨宿主插件(Plugin)，内部包含多个可独立触发的技能(Skill)，用于沉淀“架构师 + 开发”的工程原则、开发/排障工作流和项目记忆约束。`~/.agents/skills` 是共享 Skill 源；`.codex-plugin/` 与 `.claude-plugin/` 是宿主插件清单，插件只负责合集身份、版本和自动发现，不把多个 Skill 合并成一个文件。
 
 ## Skill 专题图
 
-`docs/assets/` 当前包含以下 10 张 SVG。文件名与 Skill 名称一一对应，表中说明用于快速定位；具体执行规则以对应 `SKILL.md` 和工程原则为准。
+`docs/assets/` 当前包含以下 9 张 SVG。文件名与 Skill 名称一一对应，表中说明用于快速定位；具体执行规则以对应 `SKILL.md` 和工程原则为准。
 
 | 图示文件 | 对应 Skill | 作用说明 |
 | --- | --- | --- |
@@ -16,8 +16,7 @@
 | [`skill-project-memory.svg`](docs/assets/skill-project-memory.svg) | `project-memory` | 约束项目记忆的读取、任务交接和确认后归档边界，不接管任务调度，也不建立平行索引。 |
 | [`skill-memory-get.svg`](docs/assets/skill-memory-get.svg) | `memory-get` | 开发或诊断前读取规则、主记忆和已登记匹配文档的最小相关上下文；用户明确请求时可查看记忆树。 |
 | [`skill-memory-put.svg`](docs/assets/skill-memory-put.svg) | `memory-put` | 汇总任务临时证据，经价值评估和用户确认后写入 `docs/` 正式记忆；未确认时只保留临时材料。 |
-| [`skill-session-reader.svg`](docs/assets/skill-session-reader.svg) | `session-reader` | 只读用户指定的会话或导出文件，输出带来源指纹、范围和省略边界的会话包，不复制原始会话。 |
-| [`skill-session-gotcha-extractor.svg`](docs/assets/skill-session-gotcha-extractor.svg) | `session-gotcha-extractor` | 从历史工程会话提炼场景(Scene)、误判、证据、边界和未知项，交给 `memory-put`，不直接修改正式记忆或创建平行陷阱(Gotcha)索引。 |
+| [`skill-session-gotcha-extractor.svg`](docs/assets/skill-session-gotcha-extractor.svg) | `session-gotcha-extractor` | 在工程开发与排查过程中自感应提炼高价值场景与避坑经验，或在用户明确指令下沉淀 Gotcha 记录并反向赋能工作流。 |
 
 以下概念图用黑底白字展示各专题的核心入口、流程和边界：
 
@@ -37,8 +36,6 @@
 
 ![memory-put 专题图](docs/assets/skill-memory-put.svg)
 
-![session-reader 专题图](docs/assets/skill-session-reader.svg)
-
 ![session-gotcha-extractor 专题图](docs/assets/skill-session-gotcha-extractor.svg)
 
 ## 四层结构
@@ -46,11 +43,9 @@
 1. **共享工程原则**：证据优先、先理解后修改、历史意图追溯、最小且可逆的改动、控制变量、按影响面验证和风险复核。
 2. **工作流**：`workflow` 负责语义路由，`explore`、`debug`、`dev` 分别处理澄清、诊断和开发；`bugfix` 保留为兼容路由。
 3. **项目记忆与轻量存储**：`project-memory`、`memory-get`、`memory-put`，以及其单一 CLI、策略、索引、任务临时证据、路径摘要与归档实现。
-4. **会话证据与外部引用扩展**：`session-reader` 只读指定会话并输出标准化会话包，`session-gotcha-extractor` 提炼场景(Scene)和陷阱(Gotcha)；`code-review` 与 `requesting-code-review` 提供独立收尾审查；全局方法型技能(Skill)仅按需引用，不属于本插件。
+4. **经验提炼与外部引用扩展**：`session-gotcha-extractor` 提炼场景(Scene)和陷阱(Gotcha)；`code-review` 与 `requesting-code-review` 提供独立收尾审查；全局方法型技能(Skill)仅按需引用，不属于本插件。
 
 `tools/project-memory-settings/`、`skills/project-memory/scripts/runtime/` 和 JSON 策略是第三层的实现，不是另一类技能(Skill)。入口 `SKILL.md` 只保留触发、边界和交接；不可省略的执行规则位于 `rules/engineering-principles.md` 及各 Skill 的 `references/`，随插件一起发布。
-
-`session-reader` 不复制厂商原始会话，也不把会话写入 `.agents/skills/`。它只读取用户明确指定的文件或会话 ID，输出带来源指纹、范围和省略边界的标准化会话包；提炼结果仍交给 `memory-put`，厂商格式变化只影响读取适配器。
 
 ## 插件命名空间
 
@@ -58,84 +53,9 @@
 
 - Claude Code：插件名为 `jiaohuanworkflow`，使用 `jiaohuanworkflow:<skill>`，例如 `jiaohuanworkflow:debug`。
 - Codex：保留已安装的 `jiaohuan-develop-workflow:<skill>` 兼容名称，例如 `jiaohuan-develop-workflow:debug`。
-- ZCode：`ZCode` 分支使用 `.zcode-plugin/plugin.json`，插件名同为 `jiaohuan-develop-workflow`，Skill 前缀为 `jiaohuan-develop-workflow:<skill>`；会话启动时由 `hooks/hooks.json` 注入合集感知提醒（安装步骤见下文 ZCode 安装指南）。
 - Gemini、Claude、Codex 的裸目录副本仅用于共享发布和兼容发现，唯一 Skill 源仍是 `~/.agents/skills`，不得在端点手工修改。
 
-Claude 插件根目录包含 `.claude-plugin/plugin.json` 和 `skills/`；Codex 插件根目录包含 `.codex-plugin/plugin.json` 和同一份 `skills/`。ZCode 兼容识别 `.zcode-plugin/`、`.claude-plugin/` 与 `.codex-plugin/` 三种清单位置，`ZCode` 分支以原生 `.zcode-plugin/` 为准。因此同一套能力可被不同宿主按各自命名空间发现。
-
-## ZCode 安装指南
-
-本节面向 ZCode 用户，从零完成叫唤开发工作流的安装、验证与更新。安装产物是 ZCode 官方插件目录下的本地市场，安装后插件身份为 `jiaohuan-develop-workflow@jiaohuan-local`。
-
-### 前置条件
-
-- ZCode 客户端（含 Settings → Plugin Management 插件管理界面）。
-- Node.js >= 16.7：SessionStart hook 与 `project-memory` 命令行(CLI)的运行时，需保证 `node` 在 PATH 中。
-- Git 可选：用于在导出副本中记录来源分支与提交指纹；使用压缩包下载时脚本会提示并跳过校验。
-
-### 第一步：获取仓库并检出 ZCode 分支
-
-```bash
-git clone https://github.com/JHJ1848/jiaohuan-dev.git
-cd jiaohuan-dev
-git checkout ZCode
-```
-
-`ZCode` 分支承载全部 ZCode 差异（`.zcode-plugin/` 宿主清单、`hooks/`、`marketplace.json`）；`main` 分支不包含这些文件。
-
-### 第二步：一键导出到 ZCode 标准目录
-
-```bash
-node tools/export-zcode.js
-```
-
-脚本行为：
-
-- 默认导出到 `~/.zcode/plugin-workspace/jiaohuan-develop-workflow`（Windows 为 `C:\Users\<用户名>\.zcode\plugin-workspace\jiaohuan-develop-workflow`），可用 `--dest <目录>` 改变位置。
-- 先删除旧副本，再复制 `.zcode-plugin/`、`hooks/`、`skills/`、`rules/`、`tools/`、`README.md`、`marketplace.json`，并生成 `EXPORT-INFO.md` 记录来源分支、提交和导出时间。
-- 仅允许在 `ZCode` 分支执行；其他分支会报错，确认继续可加 `--force`。
-
-边界：禁止把 Git 工作区直接注册为插件源——切换分支会改变或移除 `ZCode` 分支专属文件；客户端引用的必须是这份仓库外的导出副本。
-
-### 第三步：在客户端添加市场并安装
-
-1. 打开 Settings → Plugin Management → Discover 标签。
-2. 点击右上角 “+”（添加插件市场）。
-3. 粘贴第二步输出的导出路径，或点击“选择目录”选中该文件夹，再点击“添加插件市场”。
-4. 确认出现市场 `jiaohuan-local` 与插件卡片 `jiaohuan-develop-workflow`。
-5. 在插件卡片上点击安装（Get）；安装后插件默认启用，身份为 `jiaohuan-develop-workflow@jiaohuan-local`。
-
-### 第四步：验证安装
-
-新开一个会话，依次确认：
-
-1. **技能发现**：技能列表或 `/` 菜单出现 10 个 `jiaohuan-develop-workflow:*` 技能：`workflow`、`explore`、`dev`、`debug`、`bugfix`、`project-memory`、`memory-get`、`memory-put`、`session-reader`、`session-gotcha-extractor`。
-2. **Hook 注入**：会话启动上下文出现【叫唤开发工作流合集感知】提醒，列出技能清单与主链路。
-3. **CLI 冒烟**（可选）：
-
-```bash
-node ~/.zcode/plugin-workspace/jiaohuan-develop-workflow/skills/project-memory/scripts/project-memory.js outline --file <目标项目内的Markdown> --depth 3
-```
-
-命令行(CLI)按目标项目作用域工作；把插件目录自身当作目标会被正确拒绝。
-
-### 更新与卸载
-
-- 更新：检出最新 `ZCode` 分支 → 重新运行 `node tools/export-zcode.js` → 客户端 Installed 页将该插件禁用再启用（或重启客户端）完成重新加载。
-- 卸载：客户端插件详情页卸载即可；导出副本目录可整体删除，不影响仓库。
-
-### 常见问题
-
-| 现象 | 原因与处理 |
-| --- | --- |
-| “Marketplace manifest not found in directory” | “+”添加的是插件市场，要求目录根部存在 `marketplace.json`；请选择导出副本目录，不要选择仓库工作区或 `.zcode-plugin/` 子目录。 |
-| 导出脚本报“仅允许在 ZCode 分支执行” | 先 `git checkout ZCode`；确需在其他分支导出时加 `--force`。 |
-| Hook 未注入 | 确认插件处于启用状态（Installed 页开关）；确认 `node` 可用（hook 以 `process` 类型调用 `node`）；必要时查看 ZCode 日志中的 hook 运行记录。 |
-| 技能未出现在会话 | 检查是否被同名更高优先级副本遮蔽，或该技能在 Settings → Skills 中被禁用；ZCode 技能发现顺序以官方配置指南为准。 |
-
-### Hook 设计边界
-
-`hooks/session-start.js` 在每次 SessionStart（`startup`、`resume`、`clear`、`compact`）通过 `additionalContext` 注入一条只读提醒：动态枚举 `skills/` 下实际存在的 SKILL.md 清单与主链路，落实“新会话必读合集”规则。它只输出上下文、不写文件、不维护状态，失败时静默退出不阻塞会话。
+Claude 插件根目录包含 `.claude-plugin/plugin.json` 和 `skills/`；Codex 插件根目录包含 `.codex-plugin/plugin.json` 和同一份 `skills/`。同一套能力可被不同宿主按各自命名空间发现。
 
 ## 主链路
 
@@ -203,5 +123,3 @@ bash skills/debug/scripts/http-check.sh \
 隔离样例已人工验收 CLI 初始化、双向索引、四种读取策略、标题树、主/子任务草稿、确认归档、GUI 回环接口、七日周归档、七周清理和 HTTP 脱敏请求检查。新增的 `--replace --change-record` 仅完成静态核查，待用户授权的隔离样例人工验收。以上均不是目标项目的真实业务验收。
 
 发布时按单向路径执行：`~/.agents/skills` 共享发布源 -> Git 仓库及宿主插件副本 -> Gemini、Claude 等 Agent 端点；覆盖前先备份，禁止两处手工漂移。同步逻辑不属于项目记忆运行时。Codex 与 Claude 的 `plugin.json` 均只声明宿主认可的插件元数据，不把运行时规则重复写入清单。当前 Claude 本地插件已安装为 `jiaohuanworkflow@jiaohuanworkflow`；后续版本仍需从中央源重新同步并重新安装。
-
-ZCode 差异化边界（仅存在于 `ZCode` 分支）：`.zcode-plugin/plugin.json` 版本为 `0.3.0+zcode.<时间戳>`；session-reader 的 `zcode` 来源解析以 `model_io` 记录结构为准，厂商字段变化只修改读取适配器；ZCode rollout 真实会话已完成本机只读冒烟验收（可见消息重建、system/thinking 省略报告），跨机器与历史版本格式仍需人工确认后再用于正式提炼。
