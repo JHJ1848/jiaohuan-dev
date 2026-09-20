@@ -1,6 +1,18 @@
 'use strict';
 
-const { POLICY_VALUES, AGENTS_INDEX_START, AGENTS_INDEX_END, MAIN_INDEX_START, MAIN_INDEX_END, TOPICS_INDEX_START, TOPICS_INDEX_END, CHANGE_INDEX_START, CHANGE_INDEX_END } = require('./constants');
+const {
+  POLICY_VALUES,
+  AGENTS_INDEX_START,
+  AGENTS_INDEX_END,
+  MAIN_INDEX_START,
+  MAIN_INDEX_END,
+  TOPICS_INDEX_START,
+  TOPICS_INDEX_END,
+  CHANGE_INDEX_START,
+  CHANGE_INDEX_END,
+  APIS_INDEX_START,
+  APIS_INDEX_END,
+} = require('./constants');
 const { fail } = require('./errors');
 const {
   fs,
@@ -18,6 +30,28 @@ const {
   ensureSafeDocsDirectory,
   runtimePaths,
 } = require('./filesystem');
+
+function resolveAgentsPath(projectRoot) {
+  const dotAgents = path.join(projectRoot, '.agents', 'AGENTS.md');
+  if (existingFile(dotAgents)) {
+    return dotAgents;
+  }
+  const rootAgents = path.join(projectRoot, 'AGENTS.md');
+  if (existingFile(rootAgents)) {
+    return rootAgents;
+  }
+  return fs.existsSync(path.join(projectRoot, '.agents')) ? dotAgents : rootAgents;
+}
+
+function isCompatibilityShim(filePath) {
+  if (!existingFile(filePath)) return false;
+  try {
+    const text = readText(filePath);
+    return text.includes('兼容垫片') || text.includes('docs/MEMORY.md');
+  } catch {
+    return false;
+  }
+}
 
 function ensurePolicy(projectRoot) {
   const paths = runtimePaths(projectRoot);
@@ -100,23 +134,28 @@ function createAgentsScaffold() {
 
 function createMemoryScaffold(memoryPath, agentsPath) {
   return [
-    '# 项目记忆',
+    '# 项目记忆与治理中枢 (docs/MEMORY.md)',
     '',
-    '## 记忆索引',
+    '## 记忆双向绑定索引',
     '',
     markerBlock(MAIN_INDEX_START, MAIN_INDEX_END, [
       `agents_file: ${relativeFromFile(memoryPath, agentsPath)}`,
       'topics: memory/',
       'change_records: change/',
+      'apis: api/',
     ]),
     '',
-    '## 专题',
+    '## 专题索引',
     '',
     markerBlock(TOPICS_INDEX_START, TOPICS_INDEX_END, []),
     '',
-    '## 变更记录',
+    '## 全局变更索引',
     '',
     markerBlock(CHANGE_INDEX_START, CHANGE_INDEX_END, []),
+    '',
+    '## 接口契约索引',
+    '',
+    markerBlock(APIS_INDEX_START, APIS_INDEX_END, []),
     '',
   ].join('\n');
 }
@@ -126,9 +165,11 @@ function ensureMainMemoryStructure(content, memoryPath, agentsPath) {
     `agents_file: ${relativeFromFile(memoryPath, agentsPath)}`,
     'topics: memory/',
     'change_records: change/',
+    'apis: api/',
   ]);
-  next = appendSectionWithMarker(next, '## 专题', TOPICS_INDEX_START, TOPICS_INDEX_END, []);
-  next = appendSectionWithMarker(next, '## 变更记录', CHANGE_INDEX_START, CHANGE_INDEX_END, []);
+  next = appendSectionWithMarker(next, '## 专题索引', TOPICS_INDEX_START, TOPICS_INDEX_END, []);
+  next = appendSectionWithMarker(next, '## 全局变更索引', CHANGE_INDEX_START, CHANGE_INDEX_END, []);
+  next = appendSectionWithMarker(next, '## 接口契约索引', APIS_INDEX_START, APIS_INDEX_END, []);
   return next;
 }
 
@@ -159,7 +200,7 @@ function memoryCandidates(projectRoot, agentsPath) {
   if (existingFile(docsMemory)) {
     candidates.push({ path: docsMemory, source: 'docs_memory' });
   }
-  if (existingFile(rootMemory)) {
+  if (existingFile(rootMemory) && !isCompatibilityShim(rootMemory)) {
     candidates.push({ path: rootMemory, source: 'root_memory' });
   }
 
@@ -175,24 +216,27 @@ function memoryCandidates(projectRoot, agentsPath) {
 }
 
 function inspectFramework(projectRoot) {
-  const agentsPath = path.join(projectRoot, 'AGENTS.md');
+  const agentsPath = resolveAgentsPath(projectRoot);
   const registered = controlledAgentsMemory(projectRoot, agentsPath);
   if (registered.status === 'invalid') {
     return { status: 'invalid_framework', agents: agentsPath, reason: registered.reason };
   }
   if (registered.status === 'registered') {
     const docsMemory = path.join(projectRoot, 'docs', 'MEMORY.md');
+    const rootMemory = path.join(projectRoot, 'MEMORY.md');
     if (existingFile(registered.memoryPath) && existingFile(docsMemory) && !samePath(registered.memoryPath, docsMemory)) {
-      return {
-        status: 'memory_candidate_conflict',
-        agents: agentsPath,
-        memory: registered.memoryPath,
-        candidates: [
-          { path: toProjectPath(projectRoot, registered.memoryPath), source: 'agents_index' },
-          { path: toProjectPath(projectRoot, docsMemory), source: 'docs_memory' },
-        ],
-        reason: 'AGENTS.md 显式索引的 MEMORY.md 与 docs/MEMORY.md 不同且均存在；请显式解决冲突。',
-      };
+      if (!isCompatibilityShim(registered.memoryPath)) {
+        return {
+          status: 'memory_candidate_conflict',
+          agents: agentsPath,
+          memory: registered.memoryPath,
+          candidates: [
+            { path: toProjectPath(projectRoot, registered.memoryPath), source: 'agents_index' },
+            { path: toProjectPath(projectRoot, docsMemory), source: 'docs_memory' },
+          ],
+          reason: 'AGENTS.md 显式索引的 MEMORY.md 与 docs/MEMORY.md 不同且均存在；请显式解决冲突。',
+        };
+      }
     }
     if (!existingFile(registered.memoryPath)) {
       return { status: 'invalid_framework', agents: agentsPath, memory: registered.memoryPath, reason: 'AGENTS.md 索引指向的 MEMORY.md 不存在。' };
@@ -251,7 +295,7 @@ function registerBidirectional(projectRoot, agentsPath, memoryPath) {
   const memoryContent = ensureMainMemoryStructure(readText(memoryPath), memoryPath, agentsPath);
   const nextAgents = replaceMarkerBlock(agentsContent, AGENTS_INDEX_START, AGENTS_INDEX_END, [
     `memory_file: ${relativeFromFile(agentsPath, memoryPath)}`,
-    'memory_runtime: .agents/project-memory/',
+    'memory_runtime: project-memory/',
   ]);
 
   assertSafeProjectFile(projectRoot, memoryPath, true);
@@ -289,6 +333,7 @@ function initialize(projectRoot, options) {
     const docsPath = ensureSafeDocsDirectory(projectRoot);
     ensureSafeDirectory(projectRoot, path.join(docsPath, 'memory'));
     ensureSafeDirectory(projectRoot, path.join(docsPath, 'change'));
+    ensureSafeDirectory(projectRoot, path.join(docsPath, 'api'));
     const memoryPath = framework.memory;
     assertSafeProjectFile(projectRoot, memoryPath, false);
     writeTextAtomic(memoryPath, createMemoryScaffold(memoryPath, framework.agents));
@@ -301,6 +346,7 @@ function initialize(projectRoot, options) {
   const docsPath = ensureSafeDocsDirectory(projectRoot);
   ensureSafeDirectory(projectRoot, path.join(docsPath, 'memory'));
   ensureSafeDirectory(projectRoot, path.join(docsPath, 'change'));
+  ensureSafeDirectory(projectRoot, path.join(docsPath, 'api'));
   if (options.mode === 'migrate') {
     const backupPath = backup(projectRoot, framework.memory);
     registerBidirectional(projectRoot, framework.agents, framework.memory);
@@ -330,6 +376,8 @@ function frameworkIsWritable(framework) {
 }
 
 module.exports = {
+  resolveAgentsPath,
+  isCompatibilityShim,
   ensurePolicy,
   readPolicy,
   markerBlock,

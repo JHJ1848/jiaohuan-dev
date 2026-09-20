@@ -4,7 +4,7 @@ const POLICY_VALUES = new Set(['only_once', 'auto', 'manually', 'do_not_get']);
 const VALUE_LEVELS = new Set(['high', 'medium', 'low']);
 const VALIDITY_VALUES = new Set(['active', 'superseded', 'historical', 'needs-review']);
 const TEXT_EXTENSIONS = new Set(['.json', '.log', '.md', '.txt']);
-const BOOLEAN_OPTIONS = new Set(['confirm-reset', 'confirmed', 'explicit', 'force', 'json', 'manual', 'replace', 'tree', 'yes']);
+const BOOLEAN_OPTIONS = new Set(['confirm-reset', 'confirmed', 'explicit', 'force', 'json', 'manual', 'replace', 'tree', 'yes', 'check-integrity']);
 const TASK_SCHEMA = 2;
 const LEGACY_TASK_SCHEMA = 1;
 const ARCHIVE_SCHEMA = 2;
@@ -21,6 +21,8 @@ const CHANGE_INDEX_START = '<!-- project-memory:changes:start -->';
 const CHANGE_INDEX_END = '<!-- project-memory:changes:end -->';
 const FEATURES_INDEX_START = '<!-- project-memory:features:start -->';
 const FEATURES_INDEX_END = '<!-- project-memory:features:end -->';
+const APIS_INDEX_START = '<!-- project-memory:apis:start -->';
+const APIS_INDEX_END = '<!-- project-memory:apis:end -->';
 
 module.exports = {
   POLICY_VALUES,
@@ -43,4 +45,6 @@ module.exports = {
   CHANGE_INDEX_END,
   FEATURES_INDEX_START,
   FEATURES_INDEX_END,
+  APIS_INDEX_START,
+  APIS_INDEX_END,
 };

@@ -3,11 +3,19 @@
 ## 初始化与边界
 
 - 根 `AGENTS.md` 保存项目约束和记忆入口；`MEMORY.md` 保存受控索引与已证实事实。两者相对路径双向注册；读取后发现规则、目标或范围冲突时，以停止并请用户决定为准，不得用记忆覆盖约束；路径逃出项目或两个候选记忆冲突时同样停止。
-- 正式归档目标只能是 `docs/` 下的 Markdown。建议为 `docs/memory/<专题>.md`、`docs/memory/<专题>/<功能>.md` 或 `docs/change/<记录>.md`；项目外目标必须拒绝并给出该建议。
+- 正式归档目标只能是 `docs/` 下的 Markdown。建议为 `docs/memory/<专题>.md`、`docs/memory/<专题>/<功能>.md` 或 `docs/change/<专题>/<记录>.md`；项目外目标必须拒绝并给出该建议。
 - `AGENTS.md` 缺失记忆入口时，`get` 与 `put` 都触发初始化检查。没有记忆时创建 `docs/MEMORY.md`、`docs/memory/`、`docs/change/` 与双向索引。
 - 发现旧 `MEMORY.md` 时先返回选择：`migrate`（备份并改造成受控格式）、`keep`（仅保留旧记忆读取，正式归档前再迁移）、`reset`（备份后新建 `docs/MEMORY.md`，需 `--confirm-reset`）。不自动删除。已登记入口优先；无登记而 `docs/MEMORY.md` 与根文件都存在时优先前者；两者冲突时停止。
 
-## 读取策略
+## 三层检索规范与读取策略
+
+### 三层层级检索规范
+
+1. **第一层（全局主记忆）**：读取 `AGENTS.md`（代码工程约束、工具链与环境规范）与 `MEMORY.md`（全局底层业务不变量、架构背景、专题索引与全局变更索引）。
+2. **第二层（专题受控记忆）**：读取 `docs/memory/<专题>.md`，掌握该专题的核心职责、物理白名单、业务契约与架构决策，以及该专题名下的变更索引与简述；严禁在专题文档中堆砌具体代码改动流水账。
+3. **第三层（具体改动文档）**：根据专题索引中的链接与简述，按需深入读取对应专题目录下的 `docs/change/<专题>/YYYY-MM-DD_中文简述.md`，查阅历史 debug & dev 五段式改动明细（排查、计划、测试循环、验收、避坑）。
+
+### 读取策略
 
 策略文件为 `<project>/.agents/project-memory/memory-policy.json`，JSON 字段 `memory_get_mode` 默认 `auto`：
 

@@ -1,21 +1,59 @@
 'use strict';
 
-const { VALUE_LEVELS, VALIDITY_VALUES, TOPICS_INDEX_START, TOPICS_INDEX_END, CHANGE_INDEX_START, CHANGE_INDEX_END, FEATURES_INDEX_START, FEATURES_INDEX_END } = require('./constants');
+const {
+  VALUE_LEVELS,
+  VALIDITY_VALUES,
+  MAIN_INDEX_START,
+  MAIN_INDEX_END,
+  TOPICS_INDEX_START,
+  TOPICS_INDEX_END,
+  CHANGE_INDEX_START,
+  CHANGE_INDEX_END,
+  FEATURES_INDEX_START,
+  FEATURES_INDEX_END,
+  APIS_INDEX_START,
+  APIS_INDEX_END,
+} = require('./constants');
 const { fail } = require('./errors');
-const { fs, path, readText, writeTextAtomic, existingFile, toProjectPath, relativeFromFile, ensureSafeDirectory, assertSafeDocsTarget, assertSafeExistingDirectory, assertSafeProjectFile } = require('./filesystem');
-const { ensureFramework, frameworkIsWritable, ensureMainMemoryStructure, markerBody, replaceMarkerBlock } = require('./framework');
+const {
+  fs,
+  path,
+  readText,
+  writeTextAtomic,
+  existingFile,
+  toProjectPath,
+  relativeFromFile,
+  ensureSafeDirectory,
+  assertSafeDocsTarget,
+  assertSafeExistingDirectory,
+  assertSafeProjectFile,
+} = require('./filesystem');
+const {
+  ensureFramework,
+  frameworkIsWritable,
+  ensureMainMemoryStructure,
+  resolveAgentsPath,
+  markerBody,
+  replaceMarkerBlock,
+  parseMarkerFields,
+} = require('./framework');
 const { parseIndexEntries } = require('./retrieval');
 const { safeTaskId, taskDirectory, taskPathForManagedFile, readTaskManifest, readTaskPath, refreshTaskManifest } = require('./tasks');
 const { assertNoSecrets } = require('./secret-inspection');
 const { parseHeadings } = require('./markdown-outline');
 
 function ensureTopicStructure(content, topicName) {
-  const base = content.length > 0 ? content : `# ${topicName}\n`;
-  if (markerBody(base, FEATURES_INDEX_START, FEATURES_INDEX_END) !== null) {
-    return base;
+  const base = content.length > 0 ? content : `# 专题受控记忆: ${topicName}\n`;
+  let result = base;
+  if (markerBody(result, FEATURES_INDEX_START, FEATURES_INDEX_END) === null) {
+    const suffix = result.length === 0 ? '' : (result.endsWith('\n') ? '\n' : '\n\n');
+    result = `${result}${suffix}## 功能与场景索引\n\n${FEATURES_INDEX_START}\n${FEATURES_INDEX_END}\n`;
   }
-  const suffix = base.length === 0 ? '' : (base.endsWith('\n') ? '\n' : '\n\n');
-  return `${base}${suffix}## 功能与场景\n\n${FEATURES_INDEX_START}\n${FEATURES_INDEX_END}\n`;
+  if (markerBody(result, CHANGE_INDEX_START, CHANGE_INDEX_END) === null) {
+    const suffix = result.length === 0 ? '' : (result.endsWith('\n') ? '\n' : '\n\n');
+    result = `${result}${suffix}## 专题变更索引\n\n${CHANGE_INDEX_START}\n${CHANGE_INDEX_END}\n`;
+  }
+  return result;
 }
 
 function compactText(value) {
@@ -50,15 +88,35 @@ function writeTopicDocument(projectRoot, topicPath, topicName) {
   }
 }
 
-function updateIndexes(projectRoot, framework, target, classification, title, summary) {
+function updateIndexes(projectRoot, framework, target, classification, title, summary, apiRef) {
   const memoryPath = path.resolve(projectRoot, framework.memory);
+  const agentsPath = resolveAgentsPath(projectRoot);
+
   if (classification.kind === 'change') {
-    let memoryContent = ensureMainMemoryStructure(readText(memoryPath), memoryPath, path.join(projectRoot, 'AGENTS.md'));
+    let memoryContent = ensureMainMemoryStructure(readText(memoryPath), memoryPath, agentsPath);
     memoryContent = upsertIndexEntry(memoryContent, CHANGE_INDEX_START, CHANGE_INDEX_END, title, relativeFromFile(memoryPath, target), summary);
+    if (apiRef) {
+      memoryContent = upsertIndexEntry(memoryContent, APIS_INDEX_START, APIS_INDEX_END, apiRef.label || path.basename(apiRef.path, '.md'), relativeFromFile(memoryPath, apiRef.path), apiRef.description || summary);
+    }
     assertSafeProjectFile(projectRoot, memoryPath, true);
     writeTextAtomic(memoryPath, memoryContent);
-    return { main: toProjectPath(projectRoot, memoryPath), topic: null };
+
+    let topicProjectPath = null;
+    if (classification.topicName) {
+      const topicPath = path.join(projectRoot, 'docs', 'memory', `${classification.topicName}.md`);
+      if (existingFile(topicPath)) {
+        let topicContent = readText(topicPath);
+        if (markerBody(topicContent, CHANGE_INDEX_START, CHANGE_INDEX_END) !== null) {
+          topicContent = upsertIndexEntry(topicContent, CHANGE_INDEX_START, CHANGE_INDEX_END, title, relativeFromFile(topicPath, target), summary);
+          assertSafeDocsTarget(projectRoot, topicPath, true);
+          writeTextAtomic(topicPath, topicContent);
+          topicProjectPath = toProjectPath(projectRoot, topicPath);
+        }
+      }
+    }
+    return { main: toProjectPath(projectRoot, memoryPath), topic: topicProjectPath };
   }
+
   writeTopicDocument(projectRoot, classification.topicPath, classification.topicName);
   if (classification.kind === 'feature') {
     let topicContent = readText(classification.topicPath);
@@ -66,7 +124,8 @@ function updateIndexes(projectRoot, framework, target, classification, title, su
     assertSafeDocsTarget(projectRoot, classification.topicPath, true);
     writeTextAtomic(classification.topicPath, topicContent);
   }
-  let memoryContent = ensureMainMemoryStructure(readText(memoryPath), memoryPath, path.join(projectRoot, 'AGENTS.md'));
+
+  let memoryContent = ensureMainMemoryStructure(readText(memoryPath), memoryPath, agentsPath);
   memoryContent = upsertIndexEntry(memoryContent, TOPICS_INDEX_START, TOPICS_INDEX_END, classification.topicName, relativeFromFile(memoryPath, classification.topicPath), summary);
   assertSafeProjectFile(projectRoot, memoryPath, true);
   writeTextAtomic(memoryPath, memoryContent);
@@ -175,7 +234,7 @@ function resolveFormalTarget(projectRoot, options) {
     const target = feature ? path.join(projectRoot, 'docs', 'memory', topic, `${feature}.md`) : path.join(projectRoot, 'docs', 'memory', `${topic}.md`);
     return assertSafeDocsTarget(projectRoot, target, false);
   }
-  fail('正式归档需要 `docs/` 下的 --target；建议使用 docs/memory/<专题>.md 或 docs/memory/<专题>/<功能>.md。');
+  fail('正式归档需要 `docs/` 下的 --target；建议使用 docs/change/<专题>/YYYY-MM-DD_中文简述.md 或 docs/memory/<专题>.md。');
 }
 
 function classifyFormalTarget(projectRoot, target) {
@@ -187,10 +246,21 @@ function classifyFormalTarget(projectRoot, target) {
   if (segments[0] === 'memory' && segments.length === 3 && segments[2].toLowerCase().endsWith('.md')) {
     return { kind: 'feature', topicPath: path.join(docsPath, 'memory', `${segments[1]}.md`), topicName: segments[1], featureName: path.basename(segments[2], '.md') };
   }
-  if (segments[0] === 'change' && segments.length === 2 && segments[1].toLowerCase().endsWith('.md')) {
-    return { kind: 'change' };
+  if (segments[0] === 'change' && segments.length === 3 && segments[2].toLowerCase().endsWith('.md')) {
+    const topicName = segments[1];
+    const topicPath = path.join(docsPath, 'memory', `${topicName}.md`);
+    if (!existingFile(topicPath)) {
+      fail(`专题受控记忆文件不存在：docs/memory/${topicName}.md，禁止无主创建变更记录；请先创建或注册对应专题。`);
+    }
+    return { kind: 'change', topicName, topicPath };
   }
-  fail('正式归档目标只能是 docs/memory/<专题>.md、docs/memory/<专题>/<功能>.md 或 docs/change/<记录>.md。');
+  if (segments[0] === 'change' && segments.length === 2 && segments[1].toLowerCase().endsWith('.md')) {
+    if (!existingFile(target)) {
+      fail('新变更记录必须归入具体专题目录：docs/change/<专题>/<记录>.md，禁止创建无主平铺记录。');
+    }
+    return { kind: 'change', topicName: null, topicPath: null };
+  }
+  fail('正式归档目标只能是 docs/change/<专题>/<记录>.md、docs/memory/<专题>.md 或 docs/memory/<专题>/<功能>.md。');
 }
 
 function replacementChangeRecord(projectRoot, options) {
@@ -290,28 +360,30 @@ function formalTextFields(options) {
     { label: '标题', value: options.title },
     { label: '摘要', value: options.summary || options.text },
     { label: '价值评估说明', value: options.assessment },
-    { label: '场景与目标', value: options.goal },
-    { label: '已证实事实与证据', value: options.facts },
+    { label: '问题/需求', value: options.problem || options.goal },
+    { label: '原因分析与已证实事实', value: options.facts },
     { label: '处理与决策', value: options.decision },
-    { label: '结果与验证', value: options.result },
-    { label: '边界与未知', value: options.boundary },
-    { label: '陷阱(Gotcha)', value: options.gotcha },
+    { label: '测试结果', value: options.result },
+    { label: '备注/边界/未知', value: options.notes || options.note || options.boundary || options.gotcha },
   ];
 }
 
+/**
+ * 生成符合规范的标准四段式场景记录
+ */
 function sceneRecord(projectRoot, target, options, title, summary, assessment, sourceFiles, pathInfo, changeRecord) {
   const validity = options.validity || 'active';
   if (!VALIDITY_VALUES.has(validity)) {
     fail('--validity 只能是 active、superseded、historical 或 needs-review。');
   }
-  const goal = controlledField(options.goal, summary);
-  const facts = controlledField(options.facts, '未记录已证实事实。');
+  const problemOrGoal = controlledField(options.problem || options.goal, summary);
+  const facts = controlledField(options.facts, '已确认核心因果链路并完成验证。');
   const factsWithPath = pathInfo.facts ? `${facts}\n\n${pathInfo.facts}` : facts;
-  const decision = controlledField(options.decision, '未记录独立决策。');
-  const result = controlledField(options.result, summary);
-  const boundary = controlledField(options.boundary, '范围仅限于已归档的任务证据。');
-  const gotcha = controlledField(options.gotcha, '无。');
+  const result = controlledField(options.result, '本地自测验证通过。');
+  const notes = controlledField(options.notes || options.note || options.boundary || options.gotcha || options.decision, '无特殊风险，遵循最小改动原则。');
   const authorization = options.explicit ? '调用方提供 --explicit；运行时不验证用户意图' : '调用方提供 --confirmed；运行时不验证用户确认';
+  const apiRef = controlledReferences(projectRoot, target, options.api || options['api-doc'], '--api', true);
+
   return [
     `### ${title}`,
     '',
@@ -322,6 +394,7 @@ function sceneRecord(projectRoot, target, options, title, summary, assessment, s
     `- 复核日期: ${controlledDate(options['review-after'], '--review-after')}`,
     `- 替代关系: ${controlledReferences(projectRoot, target, options['superseded-by'], '--superseded-by', false)}`,
     `- 关联记录: ${controlledReferences(projectRoot, target, options.related, '--related', true)}`,
+    `- 关联API: ${apiRef}`,
     `- 替代变更: ${changeRecord ? `[${markdownLabel(path.basename(changeRecord, '.md'))}](${relativeFromFile(target, changeRecord)})` : '无'}`,
     `- 依赖记录: ${controlledReferences(projectRoot, target, options['depends-on'], '--depends-on', true)}`,
     `- 证据草稿: ${sourceFiles.length > 0 ? sourceFiles.join(', ') : '无'}`,
@@ -329,30 +402,96 @@ function sceneRecord(projectRoot, target, options, title, summary, assessment, s
     `- 检索词: ${pathInfo.keywords}`,
     `- 归档授权: ${authorization}。`,
     '',
-    '#### 场景与目标',
+    '#### 一、问题/需求',
     '',
-    goal,
+    problemOrGoal,
     '',
-    '#### 已证实事实与证据',
+    '#### 二、原因分析',
     '',
     factsWithPath,
     '',
-    '#### 处理与决策',
-    '',
-    decision,
-    '',
-    '#### 结果与验证',
+    '#### 三、测试结果',
     '',
     result,
     '',
-    '#### 边界与未知',
+    '#### 四、备注',
     '',
-    boundary,
-    '',
-    '#### 陷阱(Gotcha)',
-    '',
-    gotcha,
+    notes,
   ].join('\n');
+}
+
+function checkIntegrity(projectRoot) {
+  const errors = [];
+  const warnings = [];
+  const memoryPath = path.join(projectRoot, 'docs', 'MEMORY.md');
+  const agentsPath = resolveAgentsPath(projectRoot);
+
+  if (!existingFile(memoryPath)) {
+    errors.push(`受控主记忆缺失：${toProjectPath(projectRoot, memoryPath)}`);
+    return { status: 'error', errors, warnings, checked_files: 0 };
+  }
+
+  let checkedFilesCount = 1;
+  const memoryContent = readText(memoryPath);
+  const mainFields = parseMarkerFields(memoryContent, MAIN_INDEX_START, MAIN_INDEX_END);
+  if (!mainFields || !mainFields.agents_file) {
+    errors.push(`docs/MEMORY.md 缺少对 AGENTS.md 的 agents_file 双向索引标记。`);
+  } else {
+    const reciprocalAgents = path.resolve(path.dirname(memoryPath), mainFields.agents_file);
+    if (!existingFile(reciprocalAgents)) {
+      errors.push(`docs/MEMORY.md 引用的 AGENTS.md 不存在：${mainFields.agents_file}`);
+    }
+  }
+
+  // 检查专题索引链接
+  const topics = parseIndexEntries(memoryContent, TOPICS_INDEX_START, TOPICS_INDEX_END);
+  for (const topic of topics) {
+    const topicFile = path.resolve(path.dirname(memoryPath), topic.href);
+    if (!existingFile(topicFile)) {
+      errors.push(`主记忆引用的专题文件不存在：${topic.label} -> ${topic.href}`);
+    } else {
+      checkedFilesCount += 1;
+      const topicContent = readText(topicFile);
+      // 检查专题内的 change 索引
+      const topicChanges = parseIndexEntries(topicContent, CHANGE_INDEX_START, CHANGE_INDEX_END);
+      for (const change of topicChanges) {
+        const changeFile = path.resolve(path.dirname(topicFile), change.href);
+        if (!existingFile(changeFile)) {
+          errors.push(`专题 ${topic.label} 引用的变更记录不存在：${change.label} -> ${change.href}`);
+        }
+      }
+    }
+  }
+
+  // 检查全局变更索引链接
+  const globalChanges = parseIndexEntries(memoryContent, CHANGE_INDEX_START, CHANGE_INDEX_END);
+  for (const change of globalChanges) {
+    const changeFile = path.resolve(path.dirname(memoryPath), change.href);
+    if (!existingFile(changeFile)) {
+      errors.push(`主记忆引用的变更记录不存在：${change.label} -> ${change.href}`);
+    }
+  }
+
+  // 检查 API 索引链接
+  const apis = parseIndexEntries(memoryContent, APIS_INDEX_START, APIS_INDEX_END);
+  for (const api of apis) {
+    const apiFile = path.resolve(path.dirname(memoryPath), api.href);
+    if (!existingFile(apiFile)) {
+      errors.push(`主记忆引用的 API 契约文件不存在：${api.label} -> ${api.href}`);
+    } else {
+      checkedFilesCount += 1;
+    }
+  }
+
+  return {
+    status: errors.length === 0 ? 'valid' : 'broken_links',
+    errors,
+    warnings,
+    checked_files: checkedFilesCount,
+    topics_count: topics.length,
+    changes_count: globalChanges.length,
+    apis_count: apis.length,
+  };
 }
 
 function appendFormalRecord(projectRoot, options) {
@@ -387,7 +526,7 @@ function appendFormalRecord(projectRoot, options) {
   const current = existingFile(target) ? readText(target) : `# ${path.basename(target, '.md')}\n`;
   const next = appendSceneRecord(current, title, summary, record, options.replace === true);
   if (next.action === 'duplicate') {
-    const indexes = updateIndexes(projectRoot, framework, target, classification, title, summary);
+    const indexes = updateIndexes(projectRoot, framework, target, classification, title, summary, null);
     return { status: 'duplicate', target: toProjectPath(projectRoot, target), task: taskId, assessment: { value: assessment.value, reason: assessment.reason }, path_summary: pathInfo.summary, indexes };
   }
   if (next.action === 'requires_replace_confirmation') {
@@ -400,8 +539,13 @@ function appendFormalRecord(projectRoot, options) {
   }
   assertSafeDocsTarget(projectRoot, target, false);
   writeTextAtomic(target, next.content);
-  const indexes = updateIndexes(projectRoot, framework, target, classification, title, summary);
+  const indexes = updateIndexes(projectRoot, framework, target, classification, title, summary, null);
   return { status: 'archived', action: next.action, target: toProjectPath(projectRoot, target), task: taskId, assessment: { value: assessment.value, reason: assessment.reason }, path_summary: pathInfo.summary, indexes };
 }
 
-module.exports = { appendFormalRecord };
+module.exports = {
+  appendFormalRecord,
+  checkIntegrity,
+  classifyFormalTarget,
+  sceneRecord,
+};

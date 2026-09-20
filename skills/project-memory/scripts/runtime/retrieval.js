@@ -1,8 +1,26 @@
 'use strict';
 
-const { TOPICS_INDEX_START, TOPICS_INDEX_END, FEATURES_INDEX_START, FEATURES_INDEX_END, CHANGE_INDEX_START, CHANGE_INDEX_END } = require('./constants');
+const {
+  TOPICS_INDEX_START,
+  TOPICS_INDEX_END,
+  FEATURES_INDEX_START,
+  FEATURES_INDEX_END,
+  CHANGE_INDEX_START,
+  CHANGE_INDEX_END,
+  APIS_INDEX_START,
+  APIS_INDEX_END,
+} = require('./constants');
 const { fail } = require('./errors');
-const { path, readText, existingFile, samePath, isInside, toProjectPath, assertSafeDocsTarget, assertSafeProjectFile } = require('./filesystem');
+const {
+  path,
+  readText,
+  existingFile,
+  samePath,
+  isInside,
+  toProjectPath,
+  assertSafeDocsTarget,
+  assertSafeProjectFile,
+} = require('./filesystem');
 const { markerBody, ensureFramework, frameworkIsReadable, readPolicy } = require('./framework');
 const { safeTaskId } = require('./tasks');
 const { parseHeadings } = require('./markdown-outline');
@@ -23,7 +41,7 @@ function parseIndexEntries(content, start, end) {
 
 function documentSearchText(content) {
   const headings = parseHeadings(content).map((heading) => heading.title);
-  const metadata = content.split(/\r?\n/).filter((line) => /(?:摘要|summary|检索词|关键词|路径摘要|path\s*summary|keywords)\s*[:：]/i.test(line));
+  const metadata = content.split(/\r?\n/).filter((line) => /(?:摘要|summary|检索词|关键词|路径摘要|path\s*summary|keywords|问题|需求|原因分析|测试结果|备注)\s*[:：]/i.test(line));
   return [...headings, ...metadata].join(' ');
 }
 
@@ -70,10 +88,22 @@ function isControlledMemoryDocument(projectRoot, memoryPath, target) {
         return true;
       }
     }
+    for (const change of parseIndexEntries(readText(topicPath), CHANGE_INDEX_START, CHANGE_INDEX_END)) {
+      const changePath = resolveIndexedDocument(projectRoot, topicPath, change.href);
+      if (changePath && samePath(changePath, target)) {
+        return true;
+      }
+    }
   }
   for (const change of parseIndexEntries(mainContent, CHANGE_INDEX_START, CHANGE_INDEX_END)) {
     const changePath = resolveIndexedDocument(projectRoot, memoryPath, change.href);
     if (changePath && samePath(changePath, target)) {
+      return true;
+    }
+  }
+  for (const api of parseIndexEntries(mainContent, APIS_INDEX_START, APIS_INDEX_END)) {
+    const apiPath = resolveIndexedDocument(projectRoot, memoryPath, api.href);
+    if (apiPath && samePath(apiPath, target)) {
       return true;
     }
   }
@@ -135,6 +165,8 @@ function buildMemoryTree(projectRoot, memoryPath, terms) {
   const topicEntries = [];
   const changes = new Map();
   const changeEntries = [];
+  const apis = new Map();
+  const apiEntries = [];
 
   for (const topic of parseIndexEntries(mainContent, TOPICS_INDEX_START, TOPICS_INDEX_END)) {
     const topicPath = resolveIndexedDocument(projectRoot, memoryPath, topic.href);
@@ -181,6 +213,20 @@ function buildMemoryTree(projectRoot, memoryPath, terms) {
     }
   }
 
+  for (const api of parseIndexEntries(mainContent, APIS_INDEX_START, APIS_INDEX_END)) {
+    const apiPath = resolveIndexedDocument(projectRoot, memoryPath, api.href);
+    const apiContent = apiPath ? readText(apiPath) : '';
+    if (!apiPath || !indexEntryMatches(api, terms, documentSearchText(apiContent))) {
+      continue;
+    }
+    const key = toProjectPath(projectRoot, apiPath);
+    if (!apis.has(key)) {
+      const selectedApi = { entry: api, path: apiPath };
+      apis.set(key, selectedApi);
+      apiEntries.push(selectedApi);
+    }
+  }
+
   return {
     kind: 'memory',
     label: '项目记忆',
@@ -195,6 +241,7 @@ function buildMemoryTree(projectRoot, memoryPath, terms) {
         topic.features.map((feature) => documentNode('feature', feature.entry, feature.path, projectRoot, [])),
       )),
       ...changeEntries.map((change) => documentNode('change', change.entry, change.path, projectRoot, [])),
+      ...apiEntries.map((api) => documentNode('api', api.entry, api.path, projectRoot, [])),
     ],
   };
 }
@@ -266,6 +313,15 @@ function retrieve(projectRoot, options) {
           matchedIndexes.push(toProjectPath(projectRoot, featurePath));
         }
       }
+      for (const change of parseIndexEntries(topicContent, CHANGE_INDEX_START, CHANGE_INDEX_END)) {
+        const changePath = resolveIndexedDocument(projectRoot, topicPath, change.href);
+        const changeContent = changePath ? readText(changePath) : '';
+        if (!indexEntryMatches(change, terms, documentSearchText(changeContent))) continue;
+        if (changePath) {
+          selected.push(changePath);
+          matchedIndexes.push(toProjectPath(projectRoot, changePath));
+        }
+      }
     }
     for (const change of parseIndexEntries(mainContent, CHANGE_INDEX_START, CHANGE_INDEX_END)) {
       const changePath = resolveIndexedDocument(projectRoot, memoryPath, change.href);
@@ -276,6 +332,17 @@ function retrieve(projectRoot, options) {
       if (changePath) {
         selected.push(changePath);
         matchedIndexes.push(toProjectPath(projectRoot, changePath));
+      }
+    }
+    for (const api of parseIndexEntries(mainContent, APIS_INDEX_START, APIS_INDEX_END)) {
+      const apiPath = resolveIndexedDocument(projectRoot, memoryPath, api.href);
+      const apiContent = apiPath ? readText(apiPath) : '';
+      if (!indexEntryMatches(api, terms, documentSearchText(apiContent))) {
+        continue;
+      }
+      if (apiPath) {
+        selected.push(apiPath);
+        matchedIndexes.push(toProjectPath(projectRoot, apiPath));
       }
     }
   }

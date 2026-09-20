@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Project Memory 治理与记忆看板</title>
+  <style>
+    :root {
+      --bg-primary: #0f172a;
+      --bg-secondary: #1e293b;
+      --bg-tertiary: #334155;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent-blue: #38bdf8;
+      --accent-emerald: #34d399;
+      --accent-amber: #fbbf24;
+      --accent-purple: #c084fc;
+      --border-color: #334155;
+      --card-bg: #1e293b;
+      --code-bg: #090d16;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background-color: var(--bg-primary);
+      color: var(--text-main);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+    header {
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-color);
+      padding: 12px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .logo-icon {
+      width: 28px;
+      height: 28px;
+      background: linear-gradient(135deg, #38bdf8, #818cf8);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      color: #0f172a;
+    }
+    .brand h1 { font-size: 1.15rem; font-weight: 600; letter-spacing: 0.5px; }
+    .badge {
+      display: inline-block;
+      font-size: 0.75rem;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-weight: 500;
+      background: rgba(52, 211, 153, 0.15);
+      color: var(--accent-emerald);
+      border: 1px solid rgba(52, 211, 153, 0.3);
+    }
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .search-box {
+      position: relative;
+    }
+    .search-box input {
+      background: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 6px 12px 6px 32px;
+      color: var(--text-main);
+      font-size: 0.875rem;
+      outline: none;
+      width: 260px;
+      transition: all 0.2s;
+    }
+    .search-box input:focus {
+      border-color: var(--accent-blue);
+      box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
+    }
+    .search-box svg {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 14px;
+      height: 14px;
+      fill: var(--text-muted);
+    }
+    .layout-container {
+      display: flex;
+      flex: 1;
+      height: calc(100vh - 57px);
+      overflow: hidden;
+    }
+    aside {
+      width: 320px;
+      background: var(--bg-secondary);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+    .tree-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-color);
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .tree-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px 8px;
+    }
+    .tree-category {
+      margin-bottom: 16px;
+    }
+    .category-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      padding: 6px 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .tree-node {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      margin: 2px 0;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      color: #cbd5e1;
+      text-decoration: none;
+      transition: background 0.15s;
+    }
+    .tree-node:hover {
+      background: var(--bg-tertiary);
+      color: #ffffff;
+    }
+    .tree-node.active {
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--accent-blue);
+      font-weight: 500;
+      border-left: 3px solid var(--accent-blue);
+    }
+    .node-icon {
+      font-size: 0.9rem;
+      flex-shrink: 0;
+    }
+    .node-title {
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-primary);
+      overflow-y: auto;
+    }
+    .doc-toolbar {
+      padding: 12px 24px;
+      background: var(--bg-primary);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .doc-path {
+      font-size: 0.8rem;
+      font-family: monospace;
+      color: var(--accent-blue);
+      background: rgba(56, 189, 248, 0.1);
+      padding: 4px 10px;
+      border-radius: 4px;
+    }
+    .doc-container {
+      padding: 32px 40px;
+      max-width: 960px;
+      margin: 0 auto;
+      width: 100%;
+    }
+    .markdown-body h1 {
+      font-size: 1.8rem;
+      font-weight: 700;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border-color);
+      color: #ffffff;
+    }
+    .markdown-body h2 {
+      font-size: 1.35rem;
+      font-weight: 600;
+      margin-top: 28px;
+      margin-bottom: 14px;
+      color: var(--accent-blue);
+    }
+    .markdown-body h3 {
+      font-size: 1.15rem;
+      font-weight: 600;
+      margin-top: 20px;
+      margin-bottom: 10px;
+      color: var(--accent-purple);
+    }
+    .markdown-body h4 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-top: 16px;
+      margin-bottom: 8px;
+      color: var(--accent-amber);
+    }
+    .markdown-body p {
+      margin-bottom: 14px;
+      line-height: 1.65;
+      color: #cbd5e1;
+    }
+    .markdown-body ul, .markdown-body ol {
+      margin-bottom: 16px;
+      padding-left: 24px;
+      color: #cbd5e1;
+    }
+    .markdown-body li {
+      margin-bottom: 6px;
+      line-height: 1.6;
+    }
+    .markdown-body hr {
+      border: 0;
+      height: 1px;
+      background: var(--border-color);
+      margin: 24px 0;
+    }
+    .markdown-body blockquote {
+      border-left: 4px solid var(--accent-blue);
+      padding: 10px 16px;
+      margin-bottom: 16px;
+      background: rgba(56, 189, 248, 0.05);
+      border-radius: 0 6px 6px 0;
+      color: #e2e8f0;
+    }
+    .markdown-body code {
+      font-family: Consolas, Monaco, "Courier New", monospace;
+      background: var(--code-bg);
+      border: 1px solid rgba(255,255,255,0.08);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.85em;
+      color: #f472b6;
+    }
+    .markdown-body pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 16px;
+      overflow-x: auto;
+      margin-bottom: 18px;
+    }
+    .markdown-body pre code {
+      background: transparent;
+      border: 0;
+      padding: 0;
+      color: #e2e8f0;
+      font-size: 0.85rem;
+      line-height: 1.5;
+    }
+    .markdown-body table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 20px;
+    }
+    .markdown-body th, .markdown-body td {
+      border: 1px solid var(--border-color);
+      padding: 10px 14px;
+      font-size: 0.875rem;
+      text-align: left;
+    }
+    .markdown-body th {
+      background: var(--bg-secondary);
+      font-weight: 600;
+      color: #ffffff;
+    }
+    .markdown-body tr:nth-child(even) {
+      background: rgba(255,255,255,0.02);
+    }
+    .four-section-badge {
+      display: inline-block;
+      font-size: 0.7rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 600;
+      margin-right: 6px;
+    }
+    .badge-q { background: #3b82f6; color: white; }
+    .badge-r { background: #eab308; color: black; }
+    .badge-t { background: #10b981; color: white; }
+    .badge-n { background: #8b5cf6; color: white; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div class="logo-icon">M</div>
+      <h1>Project Memory 记忆看板</h1>
+      <span class="badge" id="integrity-badge">完整性：校验通过 (Valid)</span>
+    </div>
+    <div class="header-actions">
+      <div class="search-box">
+        <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+        <input type="text" id="filter-input" placeholder="按标题或摘要筛选记忆..." oninput="handleFilter(this.value)">
+      </div>
+    </div>
+  </header>
+
+  <div class="layout-container">
+    <aside>
+      <div class="tree-header">
+        <span>三层记忆拓扑</span>
+        <span id="node-count" style="color: var(--accent-blue);">14 篇文档</span>
+      </div>
+      <div class="tree-content" id="tree-container">
+        <!-- 动态渲染树节点 -->
+      </div>
+    </aside>
+
+    <main>
+      <div class="doc-toolbar">
+        <span class="doc-path" id="current-doc-path">docs/MEMORY.md</span>
+        <span style="font-size: 0.8rem; color: var(--text-muted);" id="current-doc-meta">受控唯一主记忆</span>
+      </div>
+      <div class="doc-container">
+        <article class="markdown-body" id="article-view">
+          <!-- 动态渲染 Markdown -->
+        </article>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // 内置工程记忆核心文档快照，零服务端离线秒级可用
+    const memoryData = [
+      {
+        id: "main-memory",
+        category: "第一层：主记忆与核心约束",
+        title: "docs/MEMORY.md (唯一受控主记忆)",
+        path: "docs/MEMORY.md",
+        desc: "全项目唯一受控主记忆枢纽、核心架构准则与双向索引。",
+        content: `# 项目记忆与治理中枢 (docs/MEMORY.md)
+
+本文档为“叫唤-开发-工作流 (jiaohuan-develop-workflow)”的**唯一受控主记忆枢纽**，记录项目定位、核心架构准则、专题索引、全局变更记录与 API 契约。
+
+---
+
+## 一、项目定位与记忆入口
+
+- **项目定位**：跨宿主 AI Agent 插件包，集合“叫唤-开发-工作流”的自定义技能 (Skill) 与规则 (Rule)。
+- **使用方式**：可被其他项目通过 plugins.json 引用或作为全局插件配置加载。
+- **受控主记忆**：docs/MEMORY.md 是全项目唯一主记忆权威入口。根目录 MEMORY.md 仅作为向下兼容垫片保留。
+
+---
+
+## 二、核心架构准则 (Core Architectural Principles)
+
+1. **约束优先于便利**：业务约束、工程安全与白名单隔离永远优先于临时快捷实现。
+2. **原始证据优先于推测**：记忆只能记录已确认的事实与断言，严禁将假设、推测或未验证结论写成既成事实。
+3. **三层记忆严格分层**：
+   - 第一层（主记忆与工程约束）：.agents/AGENTS.md + docs/MEMORY.md；
+   - 第二层（专题受控记忆）：docs/memory/<专题>.md 仅维护长期架构设计与索引，严禁堆砌流水账；
+   - 第三层（专题变更明细）：单次工程改动统一归档入 docs/change/<专题>/YYYY-MM-DD_中文简述.md，规范采用四段式。
+4. **历史兼容与意图推测**：新逻辑必须兼容已确认的历史约束与业务初衷，严禁破坏历史业务不变量；排查复杂历史逻辑时强制执行意图推测。
+5. **最小可逆改动**：只改动目标必要范围内的代码，严禁顺带重构、无关格式化或吞没异常；新改动与旧逻辑冲突时优先寻求兼容解。
+6. **文档与代码分离**：API 契约归入 docs/api/，业务记忆归入 docs/memory/，单次改动归入 docs/change/。`
+      },
+      {
+        id: "agents-rule",
+        category: "第一层：主记忆与核心约束",
+        title: ".agents/AGENTS.md (项目开发规则)",
+        path: ".agents/AGENTS.md",
+        desc: "约束工程代码环境、任务识别规则与操作规范。",
+        content: `# 本地开发规则 (.agents/AGENTS.md)
+
+## 项目受控记忆索引
+- 主记忆：docs/MEMORY.md
+- 运行时：project-memory/
+
+## 核心开发规则
+1. **统一编码**: 强制所有新增或修改的文件使用 utf-8 编码，严禁修改为 GBK。
+2. **唯一受控主记忆**: 本项目唯一受控主记忆为 docs/MEMORY.md。根目录 MEMORY.md 仅为向下兼容垫片。
+3. **Skill 开发规范**: 技能放置于 skills/ 独立子目录，主文件为 SKILL.md。
+4. **变更维护与记忆三层归档**: 实施变更归档入 docs/change/<专题>/YYYY-MM-DD_中文简述.md，规范采用四段式。
+5. **语言与术语**: 自然语言使用极简中文，公认专有名词使用固定中英双语。
+6. **新会话 Skill 合集必读**: 开启新会话时主动完整阅读本项目所有 Skill。
+7. **任务识别规则 (Plugin 维护 vs 被集成业务项目)**:
+   - 修改 Plugin 能力：在当前 Plugin 仓库实施；
+   - 修改被集成项目文档：切换到目标项目处理，严禁混杂。`
+      },
+      {
+        id: "topic-memory",
+        category: "第二层：专题受控记忆",
+        title: "memory 专题 (docs/memory/memory.md)",
+        path: "docs/memory/memory.md",
+        desc: "负责 AI Agent 本地记忆 Plugin 核心生命周期、三层记忆架构维护与质量保障。",
+        content: `# 专题受控记忆: memory
+
+本文档为 memory 专题的受控记忆，记录本专题的架构设计、职责边界、物理白名单与长期已知事实。
+
+## 一、专题架构与职责
+- **专题标识**: memory
+- **核心职责**: 负责 AI Agent 本地记忆 Plugin 核心生命周期、三层记忆架构维护、检索归档运行时 (runtime/)、双向索引治理与质量保障。
+- **物理白名单范围**: skills/project-memory/**, skills/memory-get/**, skills/memory-put/**, docs/**, rules/engineering-principles.md, .agents/AGENTS.md, MEMORY.md
+
+## 二、架构已知事实与决策
+1. **唯一受控主记忆**: docs/MEMORY.md 为唯一主记忆枢纽，根目录 MEMORY.md 为兼容垫片。
+2. **三层受控记忆分层**: 主记忆+AGENTS -> 专题记忆+API -> 四段式 change 记录。
+3. **新记录四段式与历史兼容**: 规范新记录为四段式（一、问题/需求；二、原因分析；三、测试结果；四、备注），保持历史平铺/五段式/六段式结构兼容。
+4. **API 契约分离**: 接口定义归入 docs/api/，与业务记忆物理隔离。
+5. **底层运行时升级**: 支持专题强校验、自动索引压缩、完整性检查。`
+      },
+      {
+        id: "topic-debug",
+        category: "第二层：专题受控记忆",
+        title: "debug 接口排障专题 (docs/memory/debug-http-replay-and-redaction.md)",
+        path: "docs/memory/debug-http-replay-and-redaction.md",
+        desc: "HTTP 接口排障脱敏规范、写读断言回放循环与敏感请求头隔离治理。",
+        content: `# 专题受控记忆: debug-http-replay-and-redaction
+
+本文档为 debug-http-replay-and-redaction 专题的受控记忆，记录 HTTP 接口排障脱敏规范与写读断言自闭环。
+
+## 一、专题架构与职责
+- **专题标识**: debug-http-replay-and-redaction
+- **核心职责**: 真实 HTTP/API 接口排障时脱敏请求、隔离凭据、自闭环断言。
+
+## 二、核心规范与脱敏规则
+1. **最小请求与脱敏规范**: 仅保留 HTTP 方法、脱敏路径、必要请求头和体，严禁记录 Token、长 ID 与密码。
+2. **写读回环与确定性断言**: 写请求 -> 读请求 -> 状态码与关键字段断言。`
+      },
+      {
+        id: "api-readme",
+        category: "第二层：接口契约规范",
+        title: "API 契约总览 (docs/api/README.md)",
+        path: "docs/api/README.md",
+        desc: "项目接口契约规范入口与索引模板，业务记忆与接口定义物理分离。",
+        content: `# 项目接口契约规范 (docs/api/README.md)
+
+本文档为“叫唤-开发-工作流”及集成项目的接口契约规范入口与索引。
+
+## 一、职责分离原则
+- **docs/api/**: 仅维护接口 URL/CLI 命令、输入参数、响应结构、状态码与权限。
+- **docs/memory/**: 维护领域业务契约与设计初衷。
+- **docs/change/**: 单次改动仅引用 API 相对路径，严禁复制完整请求头与凭据。
+
+## 二、模块接口契约索引
+- [project-memory-cli](project-memory-cli.md) - Project Memory 底层统一运行时 CLI 接口规范。`
+      },
+      {
+        id: "api-cli",
+        category: "第二层：接口契约规范",
+        title: "CLI 接口契约 (docs/api/project-memory-cli.md)",
+        path: "docs/api/project-memory-cli.md",
+        desc: "Project Memory 统一运行时 CLI 接口规范与参数契约。",
+        content: `# Project Memory CLI 接口契约规范
+
+## 1. 概述
+- **模块职责**: Project Memory 底层 Node.js 运行时统一命令行调用接口。
+- **调用方式**: node skills/project-memory/scripts/project-memory.js <command> [options]
+
+## 2. 核心子命令清单
+- **inspect**: 检查框架就绪状态与引用完整性。
+- **init**: 初始化或修复双向绑定。
+- **get**: 分层检索记忆（支持关键词检索与树状查看）。
+- **put**: 正式受控归档（要求临时证据存在并生成四段式记录）。
+- **temp / draft / path**: 临时材料流转与排查路径跟踪。`
+      },
+      {
+        id: "change-refactor",
+        category: "第三层：具体变更记录",
+        title: "2026-09-20 AI Agent 本地记忆全面重构 (docs/change/memory/...)",
+        path: "docs/change/memory/2026-09-20_AI_Agent本地记忆Plugin全面重构.md",
+        desc: "四段式规范：口径收敛、文档契约升级、底层运行时升级、Skill精简与Dashboard预研。",
+        content: `# 2026-09-20 AI Agent 本地记忆 Plugin 全面重构
+
+- 摘要: 完成本地记忆 Plugin 全面重构：docs/MEMORY.md 唯一主记忆收敛、四段式文档契约、底层运行时校验与单页看板。
+- 价值评估: high - 确立全流程严谨记忆治理与统一契约
+- 有效性: active
+- 关联API: [project-memory-cli](../../api/project-memory-cli.md)
+
+#### 一、问题/需求
+完成治理中枢派单的本地记忆 Plugin 全面重构，统一三层记忆规范与口径收敛，解决主记忆分叉、无专题归档与长篇原则混杂问题。
+
+#### 二、原因分析
+1. 历史存在根目录 MEMORY.md 与 docs/MEMORY.md 双候选分叉；
+2. 既有 Skill 文档中长篇重复工程原则，导致 Prompt 上下文过大；
+3. 需要四段式标准结构规范新记录，同时兼容历史五/六段式。
+
+#### 三、测试结果
+1. node skills/project-memory/scripts/project-memory.js inspect 输出 status: ready，引用完整性 checkIntegrity 校验通过 (Exit Code 0)；
+2. node skills/project-memory/scripts/project-memory.js get 检索验证正常。
+
+#### 四、备注
+根目录 MEMORY.md 改造为向下兼容垫片；新变更必须写入具体专题目录 docs/change/<专题>/。`
+      }
+    ];
+
+    let currentSelectedId = memoryData[0].id;
+
+    function renderTree(filterText = '') {
+      const container = document.getElementById('tree-container');
+      container.innerHTML = '';
+      const filter = filterText.toLowerCase().trim();
+
+      const categories = {};
+      memoryData.forEach(item => {
+        if (filter && !item.title.toLowerCase().includes(filter) && !item.desc.toLowerCase().includes(filter) && !item.content.toLowerCase().includes(filter)) {
+          return;
+        }
+        if (!categories[item.category]) categories[item.category] = [];
+        categories[item.category].push(item);
+      });
+
+      let totalNodes = 0;
+      for (const [catName, items] of Object.entries(categories)) {
+        totalNodes += items.length;
+        const catDiv = document.createElement('div');
+        catDiv.className = 'tree-category';
+
+        const titleDiv = document.createElement('div');
+        titleDiv.className = 'category-title';
+        titleDiv.textContent = catName;
+        catDiv.appendChild(titleDiv);
+
+        items.forEach(item => {
+          const node = document.createElement('div');
+          node.className = `tree-node ${item.id === currentSelectedId ? 'active' : ''}`;
+          node.onclick = () => selectDocument(item.id);
+
+          let icon = '📄';
+          if (catName.includes('第一层')) icon = '🏛️';
+          else if (catName.includes('第二层') && catName.includes('API')) icon = '🔌';
+          else if (catName.includes('第二层')) icon = '📚';
+          else if (catName.includes('第三层')) icon = '📝';
+
+          node.innerHTML = `
+            <span class="node-icon">${icon}</span>
+            <span class="node-title" title="${item.desc}">${item.title}</span>
+          `;
+          catDiv.appendChild(node);
+        });
+
+        container.appendChild(catDiv);
+      }
+
+      document.getElementById('node-count').textContent = `${totalNodes} 篇文档`;
+    }
+
+    function selectDocument(docId) {
+      currentSelectedId = docId;
+      const doc = memoryData.find(d => d.id === docId);
+      if (!doc) return;
+
+      document.getElementById('current-doc-path').textContent = doc.path;
+      document.getElementById('current-doc-meta').textContent = doc.desc;
+      document.getElementById('article-view').innerHTML = renderMarkdown(doc.content);
+
+      renderTree(document.getElementById('filter-input').value);
+    }
+
+    function handleFilter(val) {
+      renderTree(val);
+    }
+
+    // 轻量原生 Markdown 渲染器（支持标题、列表、四段式高亮、表格、引用）
+    function renderMarkdown(md) {
+      if (!md) return '';
+      let html = md
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+
+      // 标题
+      html = html.replace(/^#### (一、问题\/需求.*)$/gm, '<h4 style="color:#60a5fa;"><span class="four-section-badge badge-q">Q</span>$1</h4>');
+      html = html.replace(/^#### (二、原因分析.*)$/gm, '<h4 style="color:#fbbf24;"><span class="four-section-badge badge-r">R</span>$1</h4>');
+      html = html.replace(/^#### (三、测试结果.*)$/gm, '<h4 style="color:#34d399;"><span class="four-section-badge badge-t">T</span>$1</h4>');
+      html = html.replace(/^#### (四、备注.*)$/gm, '<h4 style="color:#c084fc;"><span class="four-section-badge badge-n">N</span>$1</h4>');
+      html = html.replace(/^#### (.*$)/gm, '<h4>$1</h4>');
+      html = html.replace(/^### (.*$)/gm, '<h3>$1</h3>');
+      html = html.replace(/^## (.*$)/gm, '<h2>$1</h2>');
+      html = html.replace(/^# (.*$)/gm, '<h1>$1</h1>');
+
+      // 分割线
+      html = html.replace(/^---$/gm, '<hr>');
+
+      // 粗体
+      html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+      // 代码块与行内代码
+      html = html.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
+      html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+      // 无序列表
+      html = html.replace(/^\s*-\s+(.*)$/gm, '<li>$1</li>');
+      html = html.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
+
+      // 链接
+      html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color:#38bdf8;text-decoration:none;">$1</a>');
+
+      // 段落
+      html = html.split('\n\n').map(p => {
+        p = p.trim();
+        if (p.startsWith('<h') || p.startsWith('<hr') || p.startsWith('<ul') || p.startsWith('<pre') || p.startsWith('<li')) {
+          return p;
+        }
+        return `<p>${p.replace(/\n/g, '<br>')}</p>`;
+      }).join('');
+
+      return html;
+    }
+
+    // 初始化渲染
+    selectDocument(currentSelectedId);
+  </script>
+</body>
+</html>

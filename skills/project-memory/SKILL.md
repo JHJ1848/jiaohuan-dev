@@ -3,13 +3,28 @@ name: project-memory
 description: 在用户明确启动独立任务、需要读取项目记忆、收集临时证据或经确认归档时使用。
 ---
 
-# 项目记忆(Project Memory)
+# 项目记忆 (Project Memory)
 
-按 `workflow` 选择开发、诊断(Debug)、缺陷修复(Bugfix)或探索(Explore)链路。本技能是 `memory-get` 与 `memory-put` 的交接契约，不是调度器、知识图谱或跨智能体(Agent)状态机(State Machine)。
+遵循 `rules/engineering-principles.md`。本技能是本地记忆体系的**统一底层 CLI 工具库与全局门面契约**，统领 `memory-get` 与 `memory-put`。
 
-- 启动时先执行 `memory-get`；结束后仅在用户确认时执行 `memory-put`。有实施变更时，开发/修复链路在两者之间经过 `code-review`。
-- `AGENTS.md` 存规则和入口，`MEMORY.md` 存受控索引；冲突停止。正式记录只进 `docs/`。
-- 主任务独占临时证据、`task.json`、`path.json` 和正式归档；`path.json` 是任务级临时跨智能体(Agent)子上下文，不是流程状态机(State Machine)。子智能体(Agent)只写草稿。
-- 具体读取、初始化、索引、价值评估、场景(Scene)、保留和输出契约分别以 `../memory-get/references/framework-and-retrieval.md` 与 `../memory-put/references/archival-contract.md` 为准。
-- `code-review` 需要历史约束、场景(Scene)、陷阱(Gotcha)或冲突证据时，复用 `memory-get` 的最小查询和已登记文档范围；本技能不执行审查，也不维护审查状态。
-- 结束时列出实际路由、检索/归档状态和全部实际记忆引用；无引用写“无”。
+## 核心架构职责
+1. **三层记忆契约**：
+   - 第一层：`.agents/AGENTS.md`（约束与任务识别）+ `docs/MEMORY.md`（唯一主记忆枢纽）；根目录 `MEMORY.md` 为兼容垫片；
+   - 第二层：`docs/memory/<专题>.md`（专题架构事实与索引）+ `docs/api/<模块>.md`（接口契约规范）；
+   - 第三层：`docs/change/<专题>/YYYY-MM-DD_中文简述.md`（四段式单次改动明细）。
+2. **生命周期闭环**：
+   - 任务开始：调用 `memory-get` 分层检索上下文；
+   - 过程管理：主任务维护 `.agents/project-memory/temp/<task>/` 下的临时草稿与 `path.json`；
+   - 实施改动：通过 `code-review` 独立核验；
+   - 任务收尾：经用户明确确认后调用 `memory-put` 归档。
+
+## 核心命令
+- **检查状态与完整性**: `node skills/project-memory/scripts/project-memory.js inspect`
+- **初始化或修复绑定**: `node skills/project-memory/scripts/project-memory.js init`
+- **分层检索**: `node skills/project-memory/scripts/project-memory.js get --query <关键词>`
+- **正式归档**: `node skills/project-memory/scripts/project-memory.js put --task <任务ID> --title <标题> --summary <摘要> --value <high|medium> --target docs/change/<专题>/<记录>.md --confirmed`
+- **临时材料管理**: `temp`, `draft`, `path`, `rotate`, `cleanup`
+
+## 停止条件与边界
+- 严禁绕过临时证据直接归档；
+- 严禁在未经用户明确授权下物理覆写历史变更记录。

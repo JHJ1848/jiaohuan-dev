@@ -6,3 +6,4 @@
 /docs/*
 !/docs/assets/
 !/docs/assets/**
+/.idea/*
