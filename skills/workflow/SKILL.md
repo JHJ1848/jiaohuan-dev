@@ -1,6 +1,7 @@
 ---
 name: workflow
-description: 在开发、诊断、缺陷修复或任务含义不明的工作开始时使用，用于选择最小工作流、并行边界和下一道确认门。
+plugin: jiaohuan-dev
+description: "[jiaohuan-dev] 在开发、诊断、缺陷修复或任务含义不明的工作开始时使用，用于选择最小工作流、并行边界和下一道确认门。"
 ---
 
 # 工作流 (Workflow)

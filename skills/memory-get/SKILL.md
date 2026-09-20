@@ -1,6 +1,7 @@
 ---
 name: memory-get
-description: 在独立任务或子会话的探索、诊断、开发前需要读取最小项目规则、历史意图和相关记忆时使用。
+plugin: jiaohuan-dev
+description: "[jiaohuan-dev] 在独立任务或子会话的探索、诊断、开发前需要读取最小项目规则、历史意图和相关记忆时使用。"
 ---
 
 # 记忆读取 (Memory Get)

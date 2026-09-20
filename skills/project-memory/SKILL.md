@@ -1,11 +1,12 @@
 ---
 name: project-memory
-description: 在用户明确启动独立任务、需要读取项目记忆、收集临时证据或经确认归档时使用。
+plugin: jiaohuan-dev
+description: "[jiaohuan-dev] 在用户明确启动独立任务、需要读取项目记忆、收集临时证据或经确认归档时使用。"
 ---
 
 # 项目记忆 (Project Memory)
 
-遵循 `rules/engineering-principles.md`。本技能是本地记忆体系的**统一底层 CLI 工具库与全局门面契约**，统领 `memory-get` 与 `memory-put`。
+遵循 `rules/engineering-principles.md`。本技能提供本地记忆的 CLI 和基础规则，供 `memory-get` 与 `memory-put` 使用。
 
 ## 核心架构职责
 1. **三层记忆契约**：
@@ -27,4 +28,5 @@ description: 在用户明确启动独立任务、需要读取项目记忆、收�
 
 ## 停止条件与边界
 - 严禁绕过临时证据直接归档；
-- 严禁在未经用户明确授权下物理覆写历史变更记录。
+- 严禁在未经用户明确授权下物理覆写历史变更记录；
+- **简洁写入**：临时草稿、变更明细和专题摘要只写客观事实、必要字段和验证结果；避免套话、空话、重复背景和无实际作用的修饰语。

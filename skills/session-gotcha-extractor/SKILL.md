@@ -1,15 +1,51 @@
 ---
 name: session-gotcha-extractor
-description: 在用户要求从历史智能体会话提炼可复用工程经验、误判或排障证据时使用，不用于直接修改项目记忆。
+plugin: jiaohuan-dev
+description: "[jiaohuan-dev] 从开发和排查记录中提炼可复用的场景与避坑信息，按全局或项目范围保存。"
 ---
 
-# 会话陷阱提炼
+# 场景与陷阱提炼 (Gotcha Extractor)
 
-术语：场景(Scene)是完整上下文；陷阱(Gotcha)是场景内可复用误判；循环(Loop)、智能体(Agent)、状态机(State Machine)按 `../../rules/engineering-principles.md` 定义。
+遵循 `../../rules/engineering-principles.md` 与 `references/gotcha-contract.md`。本技能从会话记录中提取已确认的避坑信息，并按范围保存。
 
-1. 仅处理开发或诊断会话；非工程会话简述并停止。
-2. 涉及指定会话或历史记录时，先使用 `session-reader` 读取来源；先展示厂商、会话 ID、范围、消息数、来源指纹和省略边界，再开始提炼。
-3. 区分用户原文、AI 可见回复、工具证据、用户推测和未闭环问题；提取场景、症状、误判、已证实证据、修复边界和未知项。
-4. 输出为 `memory-put` 的候选临时草稿；不得直接写正式 `MEMORY.md`、不得创建平行陷阱(Gotcha)索引、不得保存秘密、系统提示词或原始思维链。
-5. 当前会话未被宿主导出时，只能总结模型可见上下文，并明确“覆盖范围有限”；不得声称拥有完整原文。
-6. 未根治的问题交给 `debug`；正式归档仅由主任务经用户确认后执行 `memory-put`。默认不复制厂商原始会话。
+## 触发机制
+
+1. **被动自感应触发**：在 `dev`（开发）或 `bugfix`（排障）过程中，AI 识别出具有高复用价值、严重易错痛点或架构反思意义的场景与坑点时自感应触发提炼。
+2. **主动指令唤起**：用户明确指示“提取此场景经验”、“沉淀踩坑点”、“记录 gotcha”时触发。
+
+## 双层存储路由策略 (Dual-tier Storage Routing)
+
+提炼结果统一以标准 JSONL 追加存储，依据**通用性评估 (Generality Assessment)** 执行双层路由：
+
+| 存储层级 | 物理存储路径 | 路由判定标准 | 核心价值 |
+|---|---|---|---|
+| **全局存储 (Global)** | `~/.agents/gotchas.jsonl` | 具备**跨工程、跨语言、跨技术栈的高度通用性**（如并发零负数原子守卫、不可变快照、环境编码防劫持、排查 3 次停手红线等设计模型） | 跨工程全局复用，驱动 Plugin 自身能力全局进化 |
+| **项目存储 (Project)** | `<项目根目录>/.agents/gotchas.jsonl` | 与**当前项目强绑定**的特定业务逻辑、特定环境配置、私有 SDK/工具链依赖或该业务领域独有陷阱 | 服务当前工程上下文，防范全局知识库污染 |
+
+## 核心执行链路
+
+`场景识别 -> 通用性评估 (Global vs Project) -> 结构化提炼 -> gotcha.js 路由追加`
+
+1. **场景识别 (Recognition)**：捕获上下文中的具体场景、异常表象、初始误判假设与真实根因；
+2. **通用性评估 (Generality Assessment)**：对照决策树，判断归属于全局库 (`scope: "global"`) 还是项目库 (`scope: "project"`)；
+3. **结构化提炼 (Extraction)**：按分类（`bugfix` / `dev` / `explore`）记录已确认事实、原因和约束。文字只保留能帮助后续排查的内容，不写套话和重复背景。
+4. **路由追加 (Route & Append)**：调用 CLI 自动路由追加单行 JSONL 至对应存储库：
+   ```bash
+   # 项目级追加
+   node skills/session-gotcha-extractor/scripts/gotcha.js append --scope project --category <bugfix|dev|explore> --title <标题> ...
+   # 全局级追加
+   node skills/session-gotcha-extractor/scripts/gotcha.js append --scope global --category <bugfix|dev|explore> --title <标题> ...
+   ```
+5. **规则更新**：确有长期复用价值时，才将条目补充到对应 Skill 或系统规则。
+
+## 分类契约与边界红线
+
+- **三大分类**：
+  - `bugfix`：排障排错类（诊断顺序、误导表象、脱敏断言等）；
+  - `dev`：功能实现类（平台/环境兼容、语言特性、架构规范等）；
+  - `explore`：探索分析类（调用链梳理、只读边界、假设验证等）。
+- **边界红线**：
+  - 严禁记录 Token、密码、密钥等敏感凭据；
+  - 严禁直接修改正式受控记忆 `docs/memory/` 或主记忆，正式架构变更必须通过 `memory-put` 审核归档；
+  - 严禁注入未经本地验证的伪经验或推测结论；
+  - 避免套话、空话和重复背景，条目只写事实、原因、处理和约束。
