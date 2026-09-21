@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "BugfixReport",
+  "description": "Workflow 缺陷排查与根因修复报告机器可读输出契约",
+  "type": "object",
+  "properties": {
+    "root_cause": {
+      "type": "string",
+      "minLength": 1,
+      "description": "缺陷根因深度分析与根本触发条件"
+    },
+    "reproduction": {
+      "type": "string",
+      "minLength": 1,
+      "description": "缺陷复现步骤或最小可复现用例/日志"
+    },
+    "fix_boundary": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1,
+      "description": "最小实施修复文件边界 (严格白名单)"
+    },
+    "evidence": {
+      "type": "string",
+      "minLength": 1,
+      "description": "验证通过的客观断言证据 (命令输出、测试结果或日志)"
+    }
+  },
+  "required": ["root_cause", "reproduction", "fix_boundary", "evidence"],
+  "additionalProperties": false
+}

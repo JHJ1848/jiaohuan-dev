@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "WorkflowDecision",
+  "description": "Workflow 任务语义路由与执行范围机器可读输出契约",
+  "type": "object",
+  "properties": {
+    "route": {
+      "type": "string",
+      "enum": ["dev", "bugfix", "explore"],
+      "description": "路由决策类型"
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "description": "路由决策原因阐述"
+    },
+    "scope": {
+      "type": "object",
+      "properties": {
+        "read": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "读取文件/目录范围"
+        },
+        "write": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "允许修改写入的文件/目录白名单范围"
+        }
+      },
+      "required": ["read", "write"],
+      "additionalProperties": false
+    },
+    "next_gate": {
+      "type": "string",
+      "minLength": 1,
+      "description": "下一道流转门禁或确认节点"
+    },
+    "risk": {
+      "type": "string",
+      "enum": ["R0", "R1", "R2", "R3", "R4"],
+      "description": "任务风险分级"
+    }
+  },
+  "required": ["route", "reason", "scope", "next_gate", "risk"],
+  "additionalProperties": false
+}
