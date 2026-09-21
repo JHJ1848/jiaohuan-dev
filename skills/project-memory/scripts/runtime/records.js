@@ -15,6 +15,9 @@ const {
   APIS_INDEX_END,
 } = require('./constants');
 const { fail } = require('./errors');
+const { withLock } = require('./lock');
+
+const TRUST_LEVELS = new Set(['verified_runtime', 'trusted_project', 'external_untrusted']);
 const {
   fs,
   path,
@@ -89,47 +92,50 @@ function writeTopicDocument(projectRoot, topicPath, topicName) {
 }
 
 function updateIndexes(projectRoot, framework, target, classification, title, summary, apiRef) {
-  const memoryPath = path.resolve(projectRoot, framework.memory);
-  const agentsPath = resolveAgentsPath(projectRoot);
+  const lockPath = path.join(projectRoot, '.agents', 'project-memory', 'memory.lock');
+  return withLock(lockPath, () => {
+    const memoryPath = path.resolve(projectRoot, framework.memory);
+    const agentsPath = resolveAgentsPath(projectRoot);
 
-  if (classification.kind === 'change') {
-    let memoryContent = ensureMainMemoryStructure(readText(memoryPath), memoryPath, agentsPath);
-    memoryContent = upsertIndexEntry(memoryContent, CHANGE_INDEX_START, CHANGE_INDEX_END, title, relativeFromFile(memoryPath, target), summary);
-    if (apiRef) {
-      memoryContent = upsertIndexEntry(memoryContent, APIS_INDEX_START, APIS_INDEX_END, apiRef.label || path.basename(apiRef.path, '.md'), relativeFromFile(memoryPath, apiRef.path), apiRef.description || summary);
-    }
-    assertSafeProjectFile(projectRoot, memoryPath, true);
-    writeTextAtomic(memoryPath, memoryContent);
+    if (classification.kind === 'change') {
+      let memoryContent = ensureMainMemoryStructure(readText(memoryPath), memoryPath, agentsPath);
+      memoryContent = upsertIndexEntry(memoryContent, CHANGE_INDEX_START, CHANGE_INDEX_END, title, relativeFromFile(memoryPath, target), summary);
+      if (apiRef) {
+        memoryContent = upsertIndexEntry(memoryContent, APIS_INDEX_START, APIS_INDEX_END, apiRef.label || path.basename(apiRef.path, '.md'), relativeFromFile(memoryPath, apiRef.path), apiRef.description || summary);
+      }
+      assertSafeProjectFile(projectRoot, memoryPath, true);
+      writeTextAtomic(memoryPath, memoryContent);
 
-    let topicProjectPath = null;
-    if (classification.topicName) {
-      const topicPath = path.join(projectRoot, 'docs', 'memory', `${classification.topicName}.md`);
-      if (existingFile(topicPath)) {
-        let topicContent = readText(topicPath);
-        if (markerBody(topicContent, CHANGE_INDEX_START, CHANGE_INDEX_END) !== null) {
-          topicContent = upsertIndexEntry(topicContent, CHANGE_INDEX_START, CHANGE_INDEX_END, title, relativeFromFile(topicPath, target), summary);
-          assertSafeDocsTarget(projectRoot, topicPath, true);
-          writeTextAtomic(topicPath, topicContent);
-          topicProjectPath = toProjectPath(projectRoot, topicPath);
+      let topicProjectPath = null;
+      if (classification.topicName) {
+        const topicPath = path.join(projectRoot, 'docs', 'memory', `${classification.topicName}.md`);
+        if (existingFile(topicPath)) {
+          let topicContent = readText(topicPath);
+          if (markerBody(topicContent, CHANGE_INDEX_START, CHANGE_INDEX_END) !== null) {
+            topicContent = upsertIndexEntry(topicContent, CHANGE_INDEX_START, CHANGE_INDEX_END, title, relativeFromFile(topicPath, target), summary);
+            assertSafeDocsTarget(projectRoot, topicPath, true);
+            writeTextAtomic(topicPath, topicContent);
+            topicProjectPath = toProjectPath(projectRoot, topicPath);
+          }
         }
       }
+      return { main: toProjectPath(projectRoot, memoryPath), topic: topicProjectPath };
     }
-    return { main: toProjectPath(projectRoot, memoryPath), topic: topicProjectPath };
-  }
 
-  writeTopicDocument(projectRoot, classification.topicPath, classification.topicName);
-  if (classification.kind === 'feature') {
-    let topicContent = readText(classification.topicPath);
-    topicContent = upsertIndexEntry(topicContent, FEATURES_INDEX_START, FEATURES_INDEX_END, title, relativeFromFile(classification.topicPath, target), summary);
-    assertSafeDocsTarget(projectRoot, classification.topicPath, true);
-    writeTextAtomic(classification.topicPath, topicContent);
-  }
+    writeTopicDocument(projectRoot, classification.topicPath, classification.topicName);
+    if (classification.kind === 'feature') {
+      let topicContent = readText(classification.topicPath);
+      topicContent = upsertIndexEntry(topicContent, FEATURES_INDEX_START, FEATURES_INDEX_END, title, relativeFromFile(classification.topicPath, target), summary);
+      assertSafeDocsTarget(projectRoot, classification.topicPath, true);
+      writeTextAtomic(classification.topicPath, topicContent);
+    }
 
-  let memoryContent = ensureMainMemoryStructure(readText(memoryPath), memoryPath, agentsPath);
-  memoryContent = upsertIndexEntry(memoryContent, TOPICS_INDEX_START, TOPICS_INDEX_END, classification.topicName, relativeFromFile(memoryPath, classification.topicPath), summary);
-  assertSafeProjectFile(projectRoot, memoryPath, true);
-  writeTextAtomic(memoryPath, memoryContent);
-  return { main: toProjectPath(projectRoot, memoryPath), topic: toProjectPath(projectRoot, classification.topicPath) };
+    let memoryContent = ensureMainMemoryStructure(readText(memoryPath), memoryPath, agentsPath);
+    memoryContent = upsertIndexEntry(memoryContent, TOPICS_INDEX_START, TOPICS_INDEX_END, classification.topicName, relativeFromFile(memoryPath, classification.topicPath), summary);
+    assertSafeProjectFile(projectRoot, memoryPath, true);
+    writeTextAtomic(memoryPath, memoryContent);
+    return { main: toProjectPath(projectRoot, memoryPath), topic: toProjectPath(projectRoot, classification.topicPath) };
+  });
 }
 
 function sceneContainsSummary(scene, summary) {
@@ -376,18 +382,32 @@ function sceneRecord(projectRoot, target, options, title, summary, assessment, s
   if (!VALIDITY_VALUES.has(validity)) {
     fail('--validity 只能是 active、superseded、historical 或 needs-review。');
   }
+  const trustLevel = options['trust-level'] || options.trust || 'verified_runtime';
+  if (!TRUST_LEVELS.has(trustLevel)) {
+    fail('--trust-level 只能是 verified_runtime、trusted_project 或 external_untrusted。');
+  }
   const problemOrGoal = controlledField(options.problem || options.goal, summary);
   const facts = controlledField(options.facts, '已确认核心因果链路并完成验证。');
   const factsWithPath = pathInfo.facts ? `${facts}\n\n${pathInfo.facts}` : facts;
   const result = controlledField(options.result, '本地自测验证通过。');
   const notes = controlledField(options.notes || options.note || options.boundary || options.gotcha || options.decision, '无特殊风险，遵循最小改动原则。');
-  const authorization = options.explicit ? '调用方提供 --explicit；运行时不验证用户意图' : '调用方提供 --confirmed；运行时不验证用户确认';
+  const confirmationType = options.confirmation_type || (options.receipt ? 'verified_receipt' : (options.confirmed ? 'legacy_flag' : 'legacy_flag'));
+  let authorization = '';
+  if (confirmationType === 'verified_receipt') {
+    authorization = `调用方提供确认收据 (--receipt)；已核验有效期与授权范围${options.receipt_id ? ` (收据ID: ${options.receipt_id})` : ''}。`;
+  } else if (options.explicit) {
+    authorization = '调用方提供 --explicit；运行时不验证用户意图 (legacy_flag)。';
+  } else {
+    authorization = '调用方提供 --confirmed；运行时不验证用户确认 (legacy_flag)。';
+  }
   const apiRef = controlledReferences(projectRoot, target, options.api || options['api-doc'], '--api', true);
 
   return [
     `### ${title}`,
     '',
     `- 摘要: ${summary}`,
+    `- 确认类型: ${confirmationType}`,
+    `- 信任级别: ${trustLevel}`,
     `- 价值评估: ${assessment.value}${assessment.reason ? ` - ${assessment.reason}` : ''}`,
     `- 有效性: ${validity}`,
     `- 最近核验: ${controlledDate(options['last-verified'], '--last-verified')}`,
@@ -494,53 +514,160 @@ function checkIntegrity(projectRoot) {
   };
 }
 
+/**
+ * 解析并校验确认收据 (Receipt - P0-6 真实授权证明)
+ * @param {string} projectRoot 项目根目录
+ * @param {string|object} receiptInput 路径、JSON 字符串或对象
+ * @param {string} targetPath 归档目标绝对路径
+ * @returns {object} 校验通过的 receipt 对象
+ */
+function verifyReceipt(projectRoot, receiptInput, targetPath) {
+  let receipt = null;
+  if (typeof receiptInput === 'object' && receiptInput !== null) {
+    receipt = receiptInput;
+  } else if (typeof receiptInput === 'string') {
+    const trimmed = receiptInput.trim();
+    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+      try {
+        receipt = JSON.parse(trimmed);
+      } catch (err) {
+        fail(`确认收据 (receipt) JSON 解析失败: ${err.message}`);
+      }
+    } else {
+      const resolved = path.resolve(projectRoot, trimmed);
+      if (!fs.existsSync(resolved)) {
+        fail(`确认收据文件不存在: ${trimmed}`);
+      }
+      try {
+        receipt = JSON.parse(readText(resolved));
+      } catch (err) {
+        fail(`读取确认收据文件失败: ${err.message}`);
+      }
+    }
+  } else {
+    fail('无效的确认收据格式，必须是 JSON 字符串、收据对象或文件路径。');
+  }
+
+  if (!receipt || typeof receipt !== 'object') {
+    fail('确认收据内容无效，必须为有效 JSON 对象。');
+  }
+
+  // 1. 验证过期时间 expires_at
+  if (receipt.expires_at) {
+    const expiresTime = new Date(receipt.expires_at).getTime();
+    if (Number.isNaN(expiresTime)) {
+      fail(`确认收据 expires_at 时间格式无效: ${receipt.expires_at}`);
+    }
+    if (Date.now() > expiresTime) {
+      fail(`确认收据已过期 (过期时间: ${receipt.expires_at})`);
+    }
+  }
+
+  // 2. 验证目标路径 target 处于 receipt.scope 允许范围内
+  if (receipt.scope) {
+    const projectTargetPath = toProjectPath(projectRoot, targetPath);
+    let allowed = false;
+    const scopes = Array.isArray(receipt.scope) ? receipt.scope : [receipt.scope];
+    for (const scopePattern of scopes) {
+      const normScope = String(scopePattern || '').replace(/\\/g, '/');
+      const normTarget = projectTargetPath.replace(/\\/g, '/');
+      if (normScope === '*' || normScope === 'all' || normScope === normTarget) {
+        allowed = true;
+        break;
+      }
+      if (normScope.endsWith('/**')) {
+        const prefix = normScope.slice(0, -3);
+        if (normTarget.startsWith(prefix)) {
+          allowed = true;
+          break;
+        }
+      }
+      if (normScope.endsWith('/*')) {
+        const prefix = normScope.slice(0, -2);
+        if (normTarget.startsWith(prefix) && !normTarget.slice(prefix.length).includes('/')) {
+          allowed = true;
+          break;
+        }
+      }
+      if (normTarget.startsWith(`${normScope}/`) || normTarget === normScope) {
+        allowed = true;
+        break;
+      }
+    }
+    if (!allowed) {
+      fail(`归档目标路径 "${projectTargetPath}" 不在确认收据授权范围 (scope: ${JSON.stringify(receipt.scope)}) 内`);
+    }
+  }
+
+  return receipt;
+}
+
 function appendFormalRecord(projectRoot, options) {
   const framework = ensureFramework(projectRoot, options);
   if (!frameworkIsWritable(framework)) {
     return framework;
   }
-  if (!options.explicit && !options.confirmed) {
-    return { status: 'requires_archive_confirmation', task: options.task || null };
+  const target = resolveFormalTarget(projectRoot, options);
+
+  let confirmationType = null;
+  let verifiedReceipt = null;
+  if (options.receipt) {
+    verifiedReceipt = verifyReceipt(projectRoot, options.receipt, target);
+    confirmationType = 'verified_receipt';
+  } else if (options.confirmed === true || options.explicit === true) {
+    confirmationType = 'legacy_flag';
+  } else {
+    return {
+      status: 'requires_archive_confirmation',
+      task: options.task || null,
+      hint: '归档操作必须提供有效确认收据 (--receipt <path_or_json>) 或显式确认标志 (--confirmed)。',
+    };
   }
-  const assessment = valueAssessment(options);
+
+  const recordOptions = {
+    ...options,
+    confirmation_type: confirmationType,
+    receipt_id: verifiedReceipt ? (verifiedReceipt.receipt_id || verifiedReceipt.id || null) : null,
+  };
+
+  const assessment = valueAssessment(recordOptions);
   if (!assessment.archive) {
-    const taskId = options.task ? safeTaskId(options.task) : null;
+    const taskId = recordOptions.task ? safeTaskId(recordOptions.task) : null;
     return { ...assessment, task: taskId };
   }
-  const title = normalizeHeading(options.title, '--title');
-  const summary = compactText(options.summary || options.text);
+  const title = normalizeHeading(recordOptions.title, '--title');
+  const summary = compactText(recordOptions.summary || recordOptions.text);
   if (!summary) {
     fail('必须提供 --summary（或 --text）。');
   }
-  const taskId = options.task ? safeTaskId(options.task) : null;
+  const taskId = recordOptions.task ? safeTaskId(recordOptions.task) : null;
   const sourceFiles = sourceFilesForTask(projectRoot, taskId);
   if (sourceFiles.length === 0) {
     fail(`主任务 ${taskId} 没有受管临时证据，拒绝正式归档。`);
   }
-  assertNoSecrets(projectRoot, formalTextFields(options), sourceFiles);
+  assertNoSecrets(projectRoot, formalTextFields(recordOptions), sourceFiles);
   const pathInfo = pathMemoryInfo(readTaskPath(projectRoot, taskId));
-  const target = resolveFormalTarget(projectRoot, options);
   const classification = classifyFormalTarget(projectRoot, target);
-  let record = sceneRecord(projectRoot, target, options, title, summary, assessment, sourceFiles, pathInfo, null);
+  let record = sceneRecord(projectRoot, target, recordOptions, title, summary, assessment, sourceFiles, pathInfo, null);
   ensureSafeDirectory(projectRoot, path.dirname(target));
   const current = existingFile(target) ? readText(target) : `# ${path.basename(target, '.md')}\n`;
-  const next = appendSceneRecord(current, title, summary, record, options.replace === true);
+  const next = appendSceneRecord(current, title, summary, record, recordOptions.replace === true);
   if (next.action === 'duplicate') {
     const indexes = updateIndexes(projectRoot, framework, target, classification, title, summary, null);
-    return { status: 'duplicate', target: toProjectPath(projectRoot, target), task: taskId, assessment: { value: assessment.value, reason: assessment.reason }, path_summary: pathInfo.summary, indexes };
+    return { status: 'duplicate', confirmation_type: confirmationType, receipt_id: recordOptions.receipt_id, target: toProjectPath(projectRoot, target), task: taskId, assessment: { value: assessment.value, reason: assessment.reason }, path_summary: pathInfo.summary, indexes };
   }
   if (next.action === 'requires_replace_confirmation') {
-    return { status: 'requires_replace_confirmation', target: toProjectPath(projectRoot, target), task: taskId, assessment: { value: assessment.value, reason: assessment.reason }, hint: '同标题场景摘要已变化；核对历史变更后使用 --replace 覆盖，或改用新标题并关联替代记录。' };
+    return { status: 'requires_replace_confirmation', confirmation_type: confirmationType, receipt_id: recordOptions.receipt_id, target: toProjectPath(projectRoot, target), task: taskId, assessment: { value: assessment.value, reason: assessment.reason }, hint: '同标题场景摘要已变化；核对历史变更后使用 --replace 覆盖，或改用新标题并关联替代记录。' };
   }
   if (next.action === 'replaced') {
-    const changeRecord = replacementChangeRecord(projectRoot, options);
-    record = sceneRecord(projectRoot, target, options, title, summary, assessment, sourceFiles, pathInfo, changeRecord);
+    const changeRecord = replacementChangeRecord(projectRoot, recordOptions);
+    record = sceneRecord(projectRoot, target, recordOptions, title, summary, assessment, sourceFiles, pathInfo, changeRecord);
     next.content = appendSceneRecord(current, title, summary, record, true).content;
   }
   assertSafeDocsTarget(projectRoot, target, false);
   writeTextAtomic(target, next.content);
   const indexes = updateIndexes(projectRoot, framework, target, classification, title, summary, null);
-  return { status: 'archived', action: next.action, target: toProjectPath(projectRoot, target), task: taskId, assessment: { value: assessment.value, reason: assessment.reason }, path_summary: pathInfo.summary, indexes };
+  return { status: 'archived', action: next.action, confirmation_type: confirmationType, receipt_id: recordOptions.receipt_id, target: toProjectPath(projectRoot, target), task: taskId, assessment: { value: assessment.value, reason: assessment.reason }, path_summary: pathInfo.summary, indexes };
 }
 
 module.exports = {
@@ -548,4 +675,5 @@ module.exports = {
   checkIntegrity,
   classifyFormalTarget,
   sceneRecord,
+  verifyReceipt,
 };

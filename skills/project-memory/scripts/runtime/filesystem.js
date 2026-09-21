@@ -3,6 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const { fail } = require('./errors');
+const { withLock } = require('./lock');
 
 function readText(filePath) {
   const content = fs.readFileSync(filePath, 'utf8');
@@ -23,6 +24,17 @@ function writeTextAtomic(filePath, content) {
 
 function writeJsonAtomic(filePath, value) {
   writeTextAtomic(filePath, `${JSON.stringify(value, null, 2)}\n`);
+}
+
+function writeTextWithLock(filePath, content, options = {}) {
+  const lockFile = `${filePath}.lock`;
+  return withLock(lockFile, () => {
+    writeTextAtomic(filePath, content);
+  }, options);
+}
+
+function writeJsonWithLock(filePath, value, options = {}) {
+  writeTextWithLock(filePath, `${JSON.stringify(value, null, 2)}\n`, options);
 }
 
 function existingFile(filePath) {
@@ -203,6 +215,8 @@ module.exports = {
   readText,
   writeTextAtomic,
   writeJsonAtomic,
+  writeTextWithLock,
+  writeJsonWithLock,
   existingFile,
   samePath,
   isInside,
