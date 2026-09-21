@@ -1,13 +1,21 @@
-# 本机智能体运行记录
-/.agents/
+# 本机临时智能体运行记录与状态缓存
+/.agents/task-loop/
+/.agents/project-memory/
+/.agents/session/
 /.playwright-cli/
-# 仅用于本地开发的界面与项目工作记录
+
+# 依赖与日志
+node_modules/
+*.log
+
+# 仅用于本地开发的界面与向下兼容垫片
 /dashboard/
 /MEMORY.md
 /TODO.md
 
-# 项目记忆与历史材料不纳入首版源码基线；仅保留公开流程图
-/docs/*
-!/docs/assets/
-!/docs/assets/**
+# IDE 与编辑器配置
 /.idea/*
+
+# 受控核心规范与资产显式放行
+!/.agents/AGENTS.md
+!/.agents/gotchas.jsonl

@@ -1,3 +1,17 @@
 {
-  "name": "jiaohuan-develop-workflow"
+  "name": "jiaohuan-dev",
+  "version": "1.0.0",
+  "description": "叫唤开发工作流 (jiaohuan-dev): 生产就绪的 Agent 运行控制面、受控记忆与开发治理工作流。",
+  "author": {
+    "name": "JHJ1848"
+  },
+  "skills": "./skills",
+  "keywords": [
+    "agent",
+    "workflow",
+    "memory",
+    "governance",
+    "skills"
+  ],
+  "license": "MIT"
 }

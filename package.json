@@ -1,13 +1,23 @@
 {
   "name": "jiaohuan-dev",
   "version": "1.0.0",
-  "description": "叫唤-开发-工作流 (jiaohuan-dev) 跨宿主 AI Agent 插件核心工程包",
+  "description": "叫唤-开发-工作流 (jiaohuan-dev): 生产就绪的 Agent 运行控制面、受控记忆与开发治理工作流。",
   "type": "commonjs",
+  "author": {
+    "name": "JHJ1848"
+  },
+  "keywords": [
+    "agent",
+    "workflow",
+    "memory",
+    "governance",
+    "skills"
+  ],
+  "license": "MIT",
   "engines": {
     "node": ">=20"
   },
   "scripts": {
-    "test": "node --test tests/**/*.test.js",
     "inspect": "node skills/project-memory/scripts/project-memory.js inspect",
     "validate": "node skills/session-gotcha-extractor/scripts/gotcha.js validate --scope all"
   }
