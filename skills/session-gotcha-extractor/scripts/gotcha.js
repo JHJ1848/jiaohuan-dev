@@ -1,18 +1,15 @@
 #!/usr/bin/env node
 /**
  * @file gotcha.js
- * @description Plugin 级内置记忆自迭代 CLI，支持项目级与全局级双层 JSONL 路由存储、检索与完整性校验。
+ * @description Plugin 级内置记忆自迭代 CLI，支持动态目标工程解耦、安全路径边界限制、Schema 版本化与双层 JSONL 路由。
  */
 
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const ROOT_DIR = path.resolve(__dirname, '../../../');
-const PROJECT_GOTCHAS_PATH = path.join(ROOT_DIR, '.agents', 'gotchas.jsonl');
-const LEGACY_GOTCHAS_PATH = path.join(ROOT_DIR, 'docs', 'gotchas.jsonl');
+const CURRENT_SCHEMA_VERSION = 1;
 const GLOBAL_GOTCHAS_PATH = path.join(os.homedir(), '.agents', 'gotchas.jsonl');
-
 const VALID_CATEGORIES = ['bugfix', 'dev', 'explore'];
 const VALID_SCOPES = ['global', 'project'];
 const REQUIRED_FIELDS = [
@@ -22,7 +19,41 @@ const REQUIRED_FIELDS = [
 ];
 
 /**
- * 解析命令行参数
+ * 递归向上查找目标工程根目录
+ * @param {string} [startDir=process.cwd()] 
+ * @returns {string}
+ */
+function findProjectRoot(startDir = process.cwd()) {
+  let current = path.resolve(startDir);
+  const markers = ['.git', 'AGENTS.md', '.agents', 'package.json'];
+  while (true) {
+    for (const marker of markers) {
+      if (fs.existsSync(path.join(current, marker))) {
+        return current;
+      }
+    }
+    const parent = path.dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+  return path.resolve(startDir);
+}
+
+/**
+ * 解析并确定目标工程根目录
+ * @param {Record<string, string>} args 
+ * @returns {string}
+ */
+function resolveProjectRoot(args) {
+  const customRoot = args['project-root'] || args.projectRoot;
+  if (customRoot) {
+    return path.resolve(process.cwd(), customRoot);
+  }
+  return findProjectRoot(process.cwd());
+}
+
+/**
+ * 解析命令行参数为键值对对象
  * @param {string[]} args 
  * @returns {Record<string, string>}
  */
@@ -49,30 +80,58 @@ function parseArgs(args) {
 }
 
 /**
- * 根据 scope 解析目标存储路径
+ * 校验自定义 target 路径安全性，防止目录逃逸
+ * @param {string} targetPath 
+ * @param {string} projectRoot 
  * @param {string} scope 
+ */
+function assertSafeTargetPath(targetPath, projectRoot, scope) {
+  if (!targetPath) return;
+  const normTarget = path.normalize(path.resolve(process.cwd(), targetPath));
+  if (scope === 'project') {
+    const normProjectRoot = path.normalize(path.resolve(projectRoot));
+    const rel = path.relative(normProjectRoot, normTarget);
+    if (rel.startsWith('..') || path.isAbsolute(rel)) {
+      throw new Error(`[gotcha] 安全边界越界拦截: 自定义 target '${targetPath}' 超出项目根目录范围 (${normProjectRoot})`);
+    }
+  }
+}
+
+/**
+ * 根据 scope 解析实际物理存储路径
+ * @param {string} scope 
+ * @param {string} projectRoot 
  * @param {string} [customTarget] 
  * @returns {string}
  */
-function resolveTargetPath(scope, customTarget) {
-  if (customTarget) return path.resolve(process.cwd(), customTarget);
+function resolveTargetPath(scope, projectRoot, customTarget) {
+  if (customTarget) {
+    assertSafeTargetPath(customTarget, projectRoot, scope);
+    return path.resolve(process.cwd(), customTarget);
+  }
   if (scope === 'global') return GLOBAL_GOTCHAS_PATH;
-  return PROJECT_GOTCHAS_PATH;
+  return path.join(projectRoot, '.agents', 'gotchas.jsonl');
 }
 
 /**
  * 校验单条 Gotcha 记录合法性
  * @param {object} item 
- * @param {number} [lineNum] 
- * @returns {string[]}
+ * @param {number} [lineNum=0] 
+ * @returns {string[]} 错误信息列表
  */
 function validateEntry(item, lineNum = 0) {
   const errors = [];
   const prefix = lineNum > 0 ? `第 ${lineNum} 行: ` : '';
 
+  // Schema 版本校验与向前兼容
+  if (item.schema_version !== undefined) {
+    if (typeof item.schema_version !== 'number' || !Number.isInteger(item.schema_version) || item.schema_version <= 0) {
+      errors.push(`${prefix}schema_version 必须为正整数 (如 1)`);
+    }
+  }
+
   for (const field of REQUIRED_FIELDS) {
     if (!item[field]) {
-      // 兼容历史未打标 scope 的记录，容错推断
       if (field === 'scope') {
         item.scope = 'project';
       } else {
@@ -80,6 +139,7 @@ function validateEntry(item, lineNum = 0) {
       }
     }
   }
+
   if (item.scope && !VALID_SCOPES.includes(item.scope)) {
     errors.push(`${prefix}scope '${item.scope}' 不合法，必须为: ${VALID_SCOPES.join(', ')}`);
   }
@@ -106,25 +166,30 @@ function validateEntry(item, lineNum = 0) {
 }
 
 /**
- * 确保项目级文件就绪（若无则从旧路径平滑初始化并补充 scope 字段）
+ * 确保项目级存储就绪
+ * @param {string} projectRoot 
  */
-function ensureProjectGotchasReady() {
-  if (!fs.existsSync(PROJECT_GOTCHAS_PATH)) {
+function ensureProjectGotchasReady(projectRoot) {
+  const projectGotchasPath = path.join(projectRoot, '.agents', 'gotchas.jsonl');
+  const legacyGotchasPath = path.join(projectRoot, 'docs', 'gotchas.jsonl');
+
+  if (!fs.existsSync(projectGotchasPath)) {
     let seedContent = '';
-    if (fs.existsSync(LEGACY_GOTCHAS_PATH)) {
-      const oldLines = fs.readFileSync(LEGACY_GOTCHAS_PATH, 'utf8').split(/\r?\n/).filter(l => l.trim().length > 0);
+    if (fs.existsSync(legacyGotchasPath)) {
+      const oldLines = fs.readFileSync(legacyGotchasPath, 'utf8').split(/\r?\n/).filter(l => l.trim().length > 0);
       seedContent = oldLines.map(l => {
         try {
           const parsed = JSON.parse(l);
           if (!parsed.scope) parsed.scope = 'project';
+          if (!parsed.schema_version) parsed.schema_version = CURRENT_SCHEMA_VERSION;
           return JSON.stringify(parsed);
         } catch {
           return l;
         }
       }).join('\n') + '\n';
     }
-    fs.mkdirSync(path.dirname(PROJECT_GOTCHAS_PATH), { recursive: true });
-    fs.writeFileSync(PROJECT_GOTCHAS_PATH, seedContent, 'utf8');
+    fs.mkdirSync(path.dirname(projectGotchasPath), { recursive: true });
+    fs.writeFileSync(projectGotchasPath, seedContent, 'utf8');
   }
 }
 
@@ -132,7 +197,7 @@ function ensureProjectGotchasReady() {
  * 校验目标 JSONL 文件
  * @param {string} targetPath 
  * @param {string} label 
- * @returns {number} 有效行数
+ * @returns {number}
  */
 function validateFile(targetPath, label) {
   if (!fs.existsSync(targetPath)) {
@@ -164,36 +229,43 @@ function validateFile(targetPath, label) {
 
 /**
  * 子命令: 校验文件
+ * @param {Record<string, string>} args 
  */
 function handleValidate(args) {
-  ensureProjectGotchasReady();
+  const projectRoot = resolveProjectRoot(args);
+  ensureProjectGotchasReady(projectRoot);
   const scope = args.scope || 'all';
-  let checked = 0;
+
+  const projectGotchasPath = path.join(projectRoot, '.agents', 'gotchas.jsonl');
+  const legacyGotchasPath = path.join(projectRoot, 'docs', 'gotchas.jsonl');
 
   if (scope === 'project' || scope === 'all') {
-    checked += validateFile(PROJECT_GOTCHAS_PATH, '项目级');
+    validateFile(projectGotchasPath, '项目级');
   }
   if (scope === 'global' || scope === 'all') {
-    checked += validateFile(GLOBAL_GOTCHAS_PATH, '全局级');
+    validateFile(GLOBAL_GOTCHAS_PATH, '全局级');
   }
-  // 兼顾校验 legacy 文件若存在
-  if (fs.existsSync(LEGACY_GOTCHAS_PATH)) {
-    validateFile(LEGACY_GOTCHAS_PATH, '兼容历史');
+  if (fs.existsSync(legacyGotchasPath)) {
+    validateFile(legacyGotchasPath, '兼容历史');
   }
-  console.log(`[gotcha] 校验执行完毕，累计核验通过有效记录。`);
+  console.log(`[gotcha] 校验执行完毕，工程根目录: ${projectRoot}`);
 }
 
 /**
  * 子命令: 追加记录
+ * @param {Record<string, string>} args 
  */
 function handleAppend(args) {
-  ensureProjectGotchasReady();
+  const projectRoot = resolveProjectRoot(args);
+  ensureProjectGotchasReady(projectRoot);
+
   let entry = {};
   if (args.file) {
     const raw = fs.readFileSync(path.resolve(process.cwd(), args.file), 'utf8');
     entry = JSON.parse(raw);
   } else {
     entry = {
+      schema_version: CURRENT_SCHEMA_VERSION,
       scope: args.scope || (args.global ? 'global' : 'project'),
       category: args.category,
       title: args.title,
@@ -213,12 +285,22 @@ function handleAppend(args) {
     };
   }
 
-  // 默认路由判定
+  // 强制设置 schema_version
+  if (!entry.schema_version) {
+    entry.schema_version = CURRENT_SCHEMA_VERSION;
+  }
   if (!entry.scope) {
     entry.scope = args.scope || (entry.value_assessment?.generality === 'universal' ? 'global' : 'project');
   }
 
-  const targetPath = resolveTargetPath(entry.scope, args.target);
+  let targetPath;
+  try {
+    targetPath = resolveTargetPath(entry.scope, projectRoot, args.target);
+  } catch (err) {
+    console.error(err.message);
+    process.exit(1);
+  }
+
   const now = new Date();
   const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
 
@@ -247,17 +329,20 @@ function handleAppend(args) {
 
 /**
  * 子命令: 检索列表
+ * @param {Record<string, string>} args 
  */
 function handleList(args) {
-  ensureProjectGotchasReady();
+  const projectRoot = resolveProjectRoot(args);
+  ensureProjectGotchasReady(projectRoot);
   const scope = args.scope || 'all';
   const filterCat = args.category;
   const targets = [];
 
-  if (scope === 'project' || scope === 'all') targets.push({ path: PROJECT_GOTCHAS_PATH, scope: 'project' });
+  const projectGotchasPath = path.join(projectRoot, '.agents', 'gotchas.jsonl');
+  if (scope === 'project' || scope === 'all') targets.push({ path: projectGotchasPath, scope: 'project' });
   if (scope === 'global' || scope === 'all') targets.push({ path: GLOBAL_GOTCHAS_PATH, scope: 'global' });
 
-  console.log(`=== Gotchas 经验列表 (Scope: ${scope}, Category: ${filterCat || 'all'}) ===\n`);
+  console.log(`=== Gotchas 经验列表 (工程根目录: ${projectRoot}, Scope: ${scope}, Category: ${filterCat || 'all'}) ===\n`);
   let matched = 0;
 
   for (const t of targets) {
@@ -268,7 +353,7 @@ function handleList(args) {
         const item = JSON.parse(line);
         if (!filterCat || item.category === filterCat) {
           matched++;
-          console.log(`[${t.scope.toUpperCase()}] [${item.id}] [${item.category}] ${item.title}`);
+          console.log(`[${t.scope.toUpperCase()}] [${item.id}] [v${item.schema_version || 1}] [${item.category}] ${item.title}`);
           console.log(`  * 场景: ${item.scene}`);
           console.log(`  * 根因与解法: ${item.root_cause_and_solution}`);
           console.log(`  * 引导: ${item.guidance_and_constraint?.guidance}`);
@@ -297,8 +382,8 @@ switch (command) {
     break;
   default:
     console.log(`用法: node gotcha.js <append|list|validate> [options]
-  append   追加记录 (--scope <project|global> --category <bugfix|dev|explore> --title <str> ...)
-  list     列出记录 (--scope <project|global|all> --category <bugfix|dev|explore>)
-  validate 校验完整性 (--scope <project|global|all>)`);
+  append   追加记录 (--scope <project|global> --project-root <dir> --category <bugfix|dev|explore> --title <str> ...)
+  list     列出记录 (--scope <project|global|all> --project-root <dir> --category <bugfix|dev|explore>)
+  validate 校验完整性 (--scope <project|global|all> --project-root <dir>)`);
     break;
 }

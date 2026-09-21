@@ -1,6 +1,6 @@
 # Gotcha 场景与陷阱条目契约 (gotcha-contract.md)
 
-本文档定义 `session-gotcha-extractor` 的数据字段和全局、项目两级存储规则。
+本文档定义 `session-gotcha-extractor` 的数据字段、双层存储路由、版本演进与路径安全边界。
 
 ---
 
@@ -9,11 +9,12 @@
 - **格式要求**: JSON Lines (JSONL)，统一强制 `UTF-8` 编码，严禁注入 BOM 头。每一行为单条自包含、合法的 JSON 对象。
 - **双层存储路由策略**:
   1. **全局存储 (`~/.agents/gotchas.jsonl`)**：
-     - 适用场景：不依赖具体项目、可在多个工程复用的规则。
-     - 目的：供其他工程读取。
+     - 适用场景：不依赖具体项目、跨语言跨技术栈高度通用的设计模式与工程铁律。
+     - 目的：供所有工程全局复用，驱动 Plugin 自身能力进化。
   2. **项目存储 (`<项目根目录>/.agents/gotchas.jsonl`)**:
-     - 适用场景：依赖当前项目业务、环境或工具链的规则。
-     - 目的：只服务当前工程。
+     - 适用场景：依赖当前项目业务、环境配置或私有工具链的规则。
+     - 根目录解析：支持命令行 `--project-root <path>` 显式指定；未指定时默认从当前工作目录 (`process.cwd()`) 向上递归查找工程根目录标志（`.git`、`AGENTS.md`、`.agents`、`package.json`），未找到时回退到 `process.cwd()`。
+     - 安全路径边界：任何自定义 `--target` 必须严格限制在 `project-root` 范围内，禁止通过 `../` 或绝对路径越界逃逸。
 
 ### 通用性评估决策树 (Generality Decision Tree)
 
@@ -21,7 +22,7 @@
 flowchart TD
     A["提炼出场景与坑点经验"] --> B{"是否脱离具体项目业务，在其他工程/技术栈中同样成立？"}
     B -- 是 --> C{"是否属于通用系统设计、编码红线或通用排错模型？"}
-    B -- 否 --> D["标记 scope: 'project' -> 写入 <项目根目录>/.agents/gotchas.jsonl"]
+    B -- 否 --> D["标记 scope: 'project' -> 写入 <project-root>/.agents/gotchas.jsonl"]
     C -- 是 --> E["标记 scope: 'global' -> 写入 ~/.agents/gotchas.jsonl"]
     C -- 否 --> D
 ```
@@ -32,6 +33,7 @@ flowchart TD
 
 | 字段名 | 类型 | 必填 | 描述与约束 |
 |---|---|---|---|
+| `schema_version` | integer | 是(新条目) | Schema 契约版本号，当前版本为 `1`。历史旧条目缺失时向前兼容容错。 |
 | `id` | string | 是 | 唯一主键，格式为 `gotcha-YYYYMMDD-XXXX`（例如 `gotcha-20260920-0001`） |
 | `timestamp` | string | 是 | 记录生成的 ISO 8601 时间戳（例如 `2026-09-20T14:00:00+08:00`） |
 | `scope` | string | 是 | 存储作用域，枚举值必须为：`global`（全局通用）或 `project`（项目专用） |
@@ -55,4 +57,4 @@ flowchart TD
 
 1. **高价值门槛**：拒绝无实质复用价值的临时操作流水账。入库条目必须具备明确的“误判分析”与“正反引导约束”。
 2. **简洁写入**：字段只写事实、原因、处理和约束；避免套话、空话和重复背景。
-3. **规则更新**：只有确有长期复用价值时，才补充到对应规则或参考文档。
+3. **版本演进**：通过 `schema_version` 保障数据模式迭代，所有新增条目强制携带版本号。
