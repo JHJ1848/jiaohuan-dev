@@ -1,0 +1,14 @@
+{
+  "name": "jiaohuan-dev",
+  "version": "1.0.0",
+  "description": "叫唤-开发-工作流 (jiaohuan-dev) 跨宿主 AI Agent 插件核心工程包",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test tests/**/*.test.js",
+    "inspect": "node skills/project-memory/scripts/project-memory.js inspect",
+    "validate": "node skills/session-gotcha-extractor/scripts/gotcha.js validate --scope all"
+  }
+}
